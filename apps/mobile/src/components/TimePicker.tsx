@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -45,38 +45,33 @@ export function TimePicker({
     }
   };
 
+  // iOS: just label + native compact picker
   if (Platform.OS === "ios") {
     return (
       <View style={styles.wrapper}>
         <Text style={styles.label}>{label}</Text>
-        <View style={styles.compactField}>
-          {!value && <Text style={styles.placeholderCompact}>{placeholder}</Text>}
-          <DateTimePicker
-            value={toDateObj(value)}
-            mode="time"
-            is24Hour
-            display="compact"
-            onChange={handleChange}
-            locale="fr-FR"
-            style={styles.compactPicker}
-          />
-        </View>
+        <DateTimePicker
+          value={toDateObj(value)}
+          mode="time"
+          is24Hour
+          display="compact"
+          onChange={handleChange}
+          locale="fr-FR"
+          style={styles.iosPicker}
+        />
       </View>
     );
   }
 
-  // Android: show on press, auto-dismiss
+  // Android: custom field + dialog on press
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.field}>
-        <Text
-          style={[styles.fieldText, !value && styles.placeholder]}
-          onPress={() => setShow(true)}
-        >
+      <Pressable style={styles.field} onPress={() => setShow(true)}>
+        <Text style={[styles.fieldText, !value && styles.placeholder]}>
           {value || placeholder}
         </Text>
-      </View>
+      </Pressable>
       {show && (
         <DateTimePicker
           value={toDateObj(value)}
@@ -103,27 +98,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
-  // iOS compact
-  compactField: {
-    borderWidth: 1,
-    borderColor: colors.grayBorder,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 48,
-  },
-  placeholderCompact: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.grayMuted,
-    position: "absolute",
-    left: spacing.md,
-  },
-  compactPicker: {
-    flex: 1,
+  // iOS
+  iosPicker: {
+    alignSelf: "flex-start",
   },
   // Android
   field: {

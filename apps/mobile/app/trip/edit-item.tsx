@@ -27,7 +27,7 @@ import { TimePicker } from "../../src/components/TimePicker";
 import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
 import { colors, fonts, fontSize, spacing, radius } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
-import { transportModes, shouldCalculateDuration } from "../../src/utils/transportModes";
+import { transportModes, shouldCalculateDuration, getPlacesTypesForMode, getPlacesPlaceholderForMode } from "../../src/utils/transportModes";
 import { DocumentPicker } from "../../src/components/DocumentPicker";
 import { DocumentList } from "../../src/components/DocumentList";
 
@@ -224,6 +224,10 @@ export default function EditItemScreen() {
     );
   }
 
+  const timeError = startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+    ? "L'heure de fin doit être après l'heure de début"
+    : null;
+
   const enterAnim = hasNavigated.current
     ? (direction === "forward" ? SlideInRight : SlideInLeft)
     : undefined;
@@ -377,20 +381,20 @@ export default function EditItemScreen() {
                   onSelect={setLocation}
                   placeholder={
                     isTransport
-                      ? "Gare, aéroport, ville..."
+                      ? getPlacesPlaceholderForMode(transportMode)
                       : type === "accommodation"
                         ? "Nom de l'hôtel, adresse..."
                         : "Adresse, lieu..."
                   }
-                  types="establishment"
+                  types={isTransport ? getPlacesTypesForMode(transportMode) : "establishment"}
                 />
                 {isTransport && (
                   <PlacesAutocomplete
                     label="Arrivée"
                     value={arrivalLocation}
                     onSelect={setArrivalLocation}
-                    placeholder="Gare, aéroport, ville..."
-                    types="establishment"
+                    placeholder={getPlacesPlaceholderForMode(transportMode)}
+                    types={getPlacesTypesForMode(transportMode)}
                   />
                 )}
               </ScrollView>
@@ -475,6 +479,9 @@ export default function EditItemScreen() {
                     />
                   </View>
                 </View>
+                {timeError && (
+                  <Text style={styles.timeError}>{timeError}</Text>
+                )}
                 <TextInput
                   style={styles.input}
                   placeholder="Prix (optionnel)"
@@ -527,10 +534,10 @@ export default function EditItemScreen() {
               <View style={styles.footer}>
                 <Pressable
                   onPress={handleSave}
-                  disabled={isLoading}
+                  disabled={isLoading || !!timeError}
                   style={[
                     styles.nextBtn,
-                    isLoading && styles.nextBtnDisabled,
+                    (isLoading || !!timeError) && styles.nextBtnDisabled,
                   ]}
                 >
                   <Text style={styles.nextBtnText}>
@@ -747,6 +754,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.md,
     marginBottom: spacing.sm,
+  },
+  timeError: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
+    color: colors.red,
+    marginBottom: spacing.md,
   },
   timeHalf: {
     flex: 1,

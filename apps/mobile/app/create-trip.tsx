@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Platform,
   Keyboard,
   ScrollView,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { router } from "expo-router";
 import Animated, {
@@ -22,6 +21,7 @@ import Animated, {
 import { useTripStore } from "../src/stores/tripStore";
 import { DatePicker } from "../src/components/DatePicker";
 import { PlacesAutocomplete } from "../src/components/PlacesAutocomplete";
+import { LoadingOverlay } from "../src/components/LoadingOverlay";
 import { colors, fonts, fontSize, spacing, radius } from "../src/theme";
 
 const TOTAL_STEPS = 4;
@@ -43,13 +43,17 @@ export default function CreateTripScreen() {
   const [endDate, setEndDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const createTrip = useTripStore((s) => s.createTrip);
+  const hasNavigated = useRef(false);
 
   const next = () => {
+    Keyboard.dismiss();
+    hasNavigated.current = true;
     setDirection("forward");
     setStep((s) => s + 1);
   };
 
   const back = () => {
+    hasNavigated.current = true;
     setDirection("back");
     setStep((s) => s - 1);
   };
@@ -84,14 +88,16 @@ export default function CreateTripScreen() {
     }
   };
 
-  const enterAnim = direction === "forward" ? SlideInRight : SlideInLeft;
+  const enterAnim = hasNavigated.current
+    ? (direction === "forward" ? SlideInRight : SlideInLeft)
+    : undefined;
   const exitAnim = direction === "forward" ? SlideOutLeft : SlideOutRight;
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      enabled={step === 0 || step === 1}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -124,7 +130,7 @@ export default function CreateTripScreen() {
         {step === 0 && (
           <Animated.View
             key="step-0"
-            entering={enterAnim.duration(300)}
+            entering={enterAnim?.duration(300)}
             exiting={exitAnim.duration(200)}
             style={styles.step}
           >
@@ -163,7 +169,7 @@ export default function CreateTripScreen() {
         {step === 1 && (
           <Animated.View
             key="step-1"
-            entering={enterAnim.duration(300)}
+            entering={enterAnim?.duration(300)}
             exiting={exitAnim.duration(200)}
             style={styles.step}
           >
@@ -216,7 +222,7 @@ export default function CreateTripScreen() {
         {step === 2 && (
           <Animated.View
             key="step-2"
-            entering={enterAnim.duration(300)}
+            entering={enterAnim?.duration(300)}
             exiting={exitAnim.duration(200)}
             style={styles.step}
           >
@@ -232,6 +238,7 @@ export default function CreateTripScreen() {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.emojiScrollContent}
+                keyboardShouldPersistTaps="handled"
               >
                 <View style={styles.emojiGrid}>
                   {EMOJI_OPTIONS.map((e) => (
@@ -269,7 +276,7 @@ export default function CreateTripScreen() {
         {step === 3 && (
           <Animated.View
             key="step-3"
-            entering={enterAnim.duration(300)}
+            entering={enterAnim?.duration(300)}
             exiting={exitAnim.duration(200)}
             style={styles.step}
           >
@@ -319,8 +326,8 @@ export default function CreateTripScreen() {
           </Animated.View>
         )}
       </View>
+      <LoadingOverlay visible={isLoading} />
     </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
   );
 }
 
@@ -370,7 +377,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   step: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     paddingHorizontal: spacing.lg,
   },
   stepEmoji: {

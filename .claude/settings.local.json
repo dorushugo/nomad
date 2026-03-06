@@ -30,7 +30,14 @@
       "Bash(bun remove expo-auth-session)",
       "Bash(npx expo install lucide-react-native)",
       "Bash(npx prisma migrate dev --name add-arrival-location)",
-      "Bash(git branch -m main)"
+      "Bash(git branch -m main)",
+      "Bash(npx tsc --noEmit --project apps/mobile/tsconfig.json 2>&1 | head -30)",
+      "Bash(ls apps/mobile/node_modules/.bin/tsc 2>/dev/null && apps/mobile/node_modules/.bin/tsc --noEmit --project apps/mobile/tsconfig.json 2>&1 | head -40 || echo \"No tsc found, checking for expo typecheck...\" && cd apps/mobile && npx expo typecheck 2>&1 | head -40)",
+      "Bash(npx expo export --platform ios 2>&1 | tail -30)",
+      "Bash(git checkout -- apps/mobile/app/trip/[id].tsx)",
+      "Bash(find /Users/hugodorus/Dev/app_voyage/apps/mobile -name \".env*\" -o -name \"*.env*\" 2>/dev/null | head -10)",
+      "Bash(find /Users/hugodorus/Dev/app_voyage -name \".env*\" -type f 2>/dev/null | head -10)",
+      "Bash(head -100 /Users/hugodorus/Dev/app_voyage/apps/mobile/app/trip/\\\\[id\\\\].tsx)"
     ]
   }
 }

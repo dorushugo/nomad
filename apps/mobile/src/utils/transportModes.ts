@@ -20,3 +20,19 @@ export function shouldCalculateDuration(mode: string | undefined): boolean {
 export function getTransportModeEmoji(mode: string | undefined): string {
   return transportModes.find((m) => m.key === mode)?.emoji ?? "✈️";
 }
+
+export function getPlacesTypesForMode(mode: string | undefined): string {
+  switch (mode) {
+    case "avion": return "airport";
+    case "train": return "train_station";
+    default: return "establishment";
+  }
+}
+
+export function getPlacesPlaceholderForMode(mode: string | undefined): string {
+  switch (mode) {
+    case "avion": return "Rechercher un aéroport...";
+    case "train": return "Rechercher une gare...";
+    default: return "Gare, aéroport, ville...";
+  }
+}

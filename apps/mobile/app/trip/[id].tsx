@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Plus } from "lucide-react-native";
 import { useTripStore, Item } from "../../src/stores/tripStore";
+import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
 import { Button } from "../../src/components/Button";
@@ -75,6 +76,7 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trips, fetchTrip, deleteTrip, deleteItem } = useTripStore();
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
   // Drag selection state
@@ -117,6 +119,7 @@ export default function TripDetailScreen() {
           style: "destructive",
           onPress: async () => {
             if (id) {
+              setIsLoading(true);
               await deleteTrip(id);
               router.back();
             }
@@ -458,6 +461,7 @@ export default function TripDetailScreen() {
             <Plus size={28} color={colors.white} strokeWidth={2.5} />
           </AnimatedPressable>
         )}
+        <LoadingOverlay visible={isLoading} />
       </View>
     </>
   );

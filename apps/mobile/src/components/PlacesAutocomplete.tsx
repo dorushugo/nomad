@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -72,6 +72,11 @@ export function PlacesAutocomplete({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setPredictions([]);
+    setShowResults(false);
+  }, [types]);
 
   const search = useCallback(async (text: string) => {
     console.log("[PlacesAutocomplete] search() called with:", text);
