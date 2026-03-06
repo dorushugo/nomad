@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /Users/hugodorus/Dev/app_voyage/apps/api && rm -rf node_modules package-lock.json && bun install)",
+      "Bash(bunx tsc --noEmit 2>&1)",
+      "WebFetch(domain:www.better-auth.com)",
+      "Bash(find /Users/hugodorus/Dev/app_voyage/apps/api/src/routes -type f -name \"*.ts\" | xargs ls -la)",
+      "Bash(find /Users/hugodorus/Dev/app_voyage -name \".env*\" -type f 2>/dev/null | grep -v node_modules)",
+      "WebFetch(domain:github.com)",
+      "Bash(cd /Users/hugodorus/Dev/app_voyage/apps/api && bun add better-auth && bun remove jose)",
+      "Bash(openssl rand -base64 32)",
+      "Bash(bunx prisma migrate dev --name add-betterauth-tables)",
+      "Bash(bunx prisma db push)",
+      "Bash(bun scripts/migrate-passwords.ts)",
+      "Bash(bunx prisma db push --accept-data-loss)",
+      "Bash(bun build --no-bundle src/index.ts --outdir /tmp/nomad-check 2>&1 | head -20)",
+      "Bash(cd /Users/hugodorus/Dev/app_voyage/apps/mobile && npx expo install expo-secure-store 2>&1 | tail -5)",
+      "Bash(bun add @better-auth/expo better-auth 2>&1 | tail -5)",
+      "Bash(cd /Users/hugodorus/Dev/app_voyage/apps/api && timeout 5 bun src/index.ts 2>&1 || true)",
+      "Bash(bun add @better-auth/prisma-adapter 2>&1)",
+      "Bash(bun -e \"\nimport { PrismaClient } from '@prisma/client';\nconst p = new PrismaClient\\(\\);\nconst sessions = await p.session.findMany\\(\\);\nconsole.log\\('Sessions:', JSON.stringify\\(sessions, null, 2\\)\\);\nawait p.\\\\$disconnect\\(\\);\n\")",
+      "Bash(lsof -ti:3000 | xargs kill -9 2>/dev/null)",
+      "Bash(bun -e \"\nimport { PrismaClient } from '@prisma/client';\nconst p = new PrismaClient\\(\\);\nconst accounts = await p.account.findMany\\({ where: { providerId: 'credential' }, select: { userId: true, password: true } }\\);\nconst users = await p.user.findMany\\({ select: { id: true, email: true } }\\);\nconsole.log\\('Users:', users\\);\nconsole.log\\('Credential accounts:', accounts.map\\(a => \\({ userId: a.userId, hasPassword: !!a.password }\\)\\)\\);\nawait p.\\\\$disconnect\\(\\);\n\")",
+      "Bash(lsof -ti:3000 | xargs kill -9 2>/dev/null; echo \"done\")",
+      "WebFetch(domain:better-auth.com)",
+      "WebFetch(domain:expo.dev)",
+      "Bash(npx expo install @react-navigation/bottom-tabs)",
+      "Bash(cd /Users/hugodorus/Dev/app_voyage/apps/mobile && npx expo install expo@^55.0.0 --fix)",
+      "Bash(npx expo uninstall expo-auth-session)",
+      "Bash(bun remove expo-auth-session)",
+      "Bash(npx expo install lucide-react-native)",
+      "Bash(npx prisma migrate dev --name add-arrival-location)",
+      "Bash(git branch -m main)"
+    ]
+  }
+}

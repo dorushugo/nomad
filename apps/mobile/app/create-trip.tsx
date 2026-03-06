@@ -1,0 +1,470 @@
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  ScrollView,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { router } from "expo-router";
+import Animated, {
+  SlideInRight,
+  SlideInLeft,
+  SlideOutLeft,
+  SlideOutRight,
+} from "react-native-reanimated";
+import { useTripStore } from "../src/stores/tripStore";
+import { DatePicker } from "../src/components/DatePicker";
+import { PlacesAutocomplete } from "../src/components/PlacesAutocomplete";
+import { colors, fonts, fontSize, spacing, radius } from "../src/theme";
+
+const TOTAL_STEPS = 4;
+
+const EMOJI_OPTIONS = [
+  "✈️", "🌍", "🏖️", "🏔️", "🗼", "🏛️", "🌴", "🏝️", "🎒", "🚗",
+  "🚂", "🛳️", "🏕️", "🌸", "🎿", "🏄", "🧳", "🗺️", "🌅", "🎭",
+  "🇫🇷", "🇮🇹", "🇪🇸", "🇯🇵", "🇺🇸", "🇬🇧", "🇩🇪", "🇧🇷", "🇲🇽", "🇹🇭",
+];
+
+export default function CreateTripScreen() {
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [destination, setDestination] = useState("");
+  const [emoji, setEmoji] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const createTrip = useTripStore((s) => s.createTrip);
+
+  const next = () => {
+    setDirection("forward");
+    setStep((s) => s + 1);
+  };
+
+  const back = () => {
+    setDirection("back");
+    setStep((s) => s - 1);
+  };
+
+  const handleCountryDetected = (flagEmoji: string) => {
+    if (!emoji) {
+      setEmoji(flagEmoji);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (new Date(endDate) < new Date(startDate)) {
+      Alert.alert("Erreur", "La date de fin doit être après le début");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const trip = await createTrip({
+        title: title.trim(),
+        destination: destination.trim(),
+        description: description.trim() || undefined,
+        emoji: emoji || undefined,
+        startDate,
+        endDate,
+      });
+      router.replace(`/trip/${trip.id}`);
+    } catch (error: any) {
+      Alert.alert("Erreur", error.message || "Impossible de créer le voyage");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const enterAnim = direction === "forward" ? SlideInRight : SlideInLeft;
+  const exitAnim = direction === "forward" ? SlideOutLeft : SlideOutRight;
+
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={step === 0 ? () => router.back() : back}
+          style={styles.headerBtn}
+          hitSlop={12}
+        >
+          <Text style={styles.headerBtnText}>
+            {step === 0 ? "✕" : "←"}
+          </Text>
+        </Pressable>
+
+        {/* Progress dots */}
+        <View style={styles.dots}>
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i <= step && styles.dotActive]}
+            />
+          ))}
+        </View>
+
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* Steps */}
+      <View style={styles.body}>
+        {/* Step 0: Destination */}
+        {step === 0 && (
+          <Animated.View
+            key="step-0"
+            entering={enterAnim.duration(300)}
+            exiting={exitAnim.duration(200)}
+            style={styles.step}
+          >
+            <Text style={styles.stepEmoji}>✈️</Text>
+            <Text style={styles.question}>Où pars-tu ?</Text>
+            <Text style={styles.hint}>
+              Choisis ta destination pour commencer
+            </Text>
+
+            <View style={styles.fieldContainer}>
+              <PlacesAutocomplete
+                label=""
+                value={destination}
+                onSelect={setDestination}
+                onCountryDetected={handleCountryDetected}
+                placeholder="Rechercher une ville ou un pays..."
+              />
+            </View>
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={next}
+                disabled={!destination.trim()}
+                style={[
+                  styles.nextBtn,
+                  !destination.trim() && styles.nextBtnDisabled,
+                ]}
+              >
+                <Text style={styles.nextBtnText}>Suivant</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Step 1: Title + Description */}
+        {step === 1 && (
+          <Animated.View
+            key="step-1"
+            entering={enterAnim.duration(300)}
+            exiting={exitAnim.duration(200)}
+            style={styles.step}
+          >
+            <Text style={styles.stepEmoji}>📝</Text>
+            <Text style={styles.question}>
+              Donne un nom à{"\n"}ton voyage
+            </Text>
+            <Text style={styles.hint}>
+              Un petit nom pour t'y retrouver
+            </Text>
+
+            <View style={styles.fieldContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Road trip en Italie"
+                placeholderTextColor={colors.grayMuted}
+                value={title}
+                onChangeText={setTitle}
+                selectionColor={colors.rose}
+                autoFocus
+              />
+              <TextInput
+                style={[styles.input, styles.inputSecondary]}
+                placeholder="Description (optionnel)"
+                placeholderTextColor={colors.grayMuted}
+                value={description}
+                onChangeText={setDescription}
+                selectionColor={colors.rose}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={next}
+                disabled={!title.trim()}
+                style={[
+                  styles.nextBtn,
+                  !title.trim() && styles.nextBtnDisabled,
+                ]}
+              >
+                <Text style={styles.nextBtnText}>Suivant</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Step 2: Emoji picker */}
+        {step === 2 && (
+          <Animated.View
+            key="step-2"
+            entering={enterAnim.duration(300)}
+            exiting={exitAnim.duration(200)}
+            style={styles.step}
+          >
+            <Text style={styles.stepEmoji}>{emoji || "🎨"}</Text>
+            <Text style={styles.question}>Choisis un emoji</Text>
+            <Text style={styles.hint}>
+              {emoji
+                ? "Tu peux en choisir un autre si tu veux"
+                : "Il représentera ton voyage"}
+            </Text>
+
+            <View style={styles.fieldContainer}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.emojiScrollContent}
+              >
+                <View style={styles.emojiGrid}>
+                  {EMOJI_OPTIONS.map((e) => (
+                    <Pressable
+                      key={e}
+                      onPress={() => setEmoji(e)}
+                      style={[
+                        styles.emojiCell,
+                        emoji === e && styles.emojiCellActive,
+                      ]}
+                    >
+                      <Text style={styles.emojiText}>{e}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={next}
+                disabled={!emoji}
+                style={[
+                  styles.nextBtn,
+                  !emoji && styles.nextBtnDisabled,
+                ]}
+              >
+                <Text style={styles.nextBtnText}>Suivant</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Step 3: Dates */}
+        {step === 3 && (
+          <Animated.View
+            key="step-3"
+            entering={enterAnim.duration(300)}
+            exiting={exitAnim.duration(200)}
+            style={styles.step}
+          >
+            <Text style={styles.stepEmoji}>📅</Text>
+            <Text style={styles.question}>Quand pars-tu ?</Text>
+            <Text style={styles.hint}>
+              Sélectionne tes dates de voyage
+            </Text>
+
+            <View style={styles.fieldContainer}>
+              <View style={styles.dateRow}>
+                <View style={styles.dateHalf}>
+                  <DatePicker
+                    label="Départ"
+                    value={startDate}
+                    onChange={setStartDate}
+                    placeholder="Date"
+                  />
+                </View>
+                <View style={styles.dateHalf}>
+                  <DatePicker
+                    label="Retour"
+                    value={endDate}
+                    onChange={setEndDate}
+                    placeholder="Date"
+                    minimumDate={startDate}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={handleCreate}
+                disabled={!startDate || !endDate || isLoading}
+                style={[
+                  styles.nextBtn,
+                  (!startDate || !endDate || isLoading) &&
+                    styles.nextBtnDisabled,
+                ]}
+              >
+                <Text style={styles.nextBtnText}>
+                  {isLoading ? "Création..." : "Créer le voyage"}
+                </Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+      </View>
+    </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.grayLight,
+  },
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBtnText: {
+    fontSize: 20,
+    color: colors.black,
+  },
+  // Dots
+  dots: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.full,
+    backgroundColor: colors.grayBorder,
+  },
+  dotActive: {
+    backgroundColor: colors.rose,
+    width: 24,
+  },
+  // Body
+  body: {
+    flex: 1,
+  },
+  step: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  stepEmoji: {
+    fontSize: 56,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  question: {
+    fontFamily: fonts.bold,
+    fontSize: fontSize.xxxl,
+    color: colors.black,
+    letterSpacing: -1,
+    lineHeight: 44,
+    marginBottom: spacing.sm,
+  },
+  hint: {
+    fontFamily: fonts.regular,
+    fontSize: fontSize.md,
+    color: colors.gray,
+    marginBottom: spacing.xl,
+  },
+  fieldContainer: {
+    flex: 1,
+  },
+  // Inputs
+  input: {
+    fontFamily: fonts.regular,
+    fontSize: fontSize.lg,
+    color: colors.black,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: colors.grayBorder,
+    marginBottom: spacing.md,
+  },
+  inputSecondary: {
+    fontSize: fontSize.md,
+    paddingVertical: 14,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  // Emoji grid
+  emojiScrollContent: {
+    paddingBottom: spacing.sm,
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  emojiCell: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.grayBorder,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiCellActive: {
+    borderColor: colors.rose,
+    backgroundColor: colors.roseLight,
+  },
+  emojiText: {
+    fontSize: 28,
+  },
+  // Dates
+  dateRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  dateHalf: {
+    flex: 1,
+  },
+  // Footer
+  footer: {
+    paddingBottom: 40,
+    paddingTop: spacing.md,
+  },
+  nextBtn: {
+    backgroundColor: colors.rose,
+    borderRadius: radius.full,
+    paddingVertical: 18,
+    alignItems: "center",
+  },
+  nextBtnDisabled: {
+    opacity: 0.3,
+  },
+  nextBtnText: {
+    fontFamily: fonts.semiBold,
+    fontSize: fontSize.md,
+    color: colors.white,
+  },
+});
