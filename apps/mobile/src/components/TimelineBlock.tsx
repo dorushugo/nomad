@@ -28,6 +28,7 @@ interface TimelineBlockProps {
   onPress: () => void;
   onDelete?: () => void;
   isDragging?: boolean;
+  fill?: boolean;
 }
 
 function renderRightActions() {
@@ -39,7 +40,7 @@ function renderRightActions() {
   );
 }
 
-export function TimelineBlock({ item, onPress, onDelete, isDragging }: TimelineBlockProps) {
+export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: TimelineBlockProps) {
   const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.activity;
   const emoji = item.type === "transport"
     ? getTransportModeEmoji(item.transportMode)
@@ -125,6 +126,7 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging }: TimelineB
       style={[
         styles.block,
         { borderLeftColor: config.accent },
+        fill && { height: "100%", marginBottom: 0 },
         isDragging && styles.blockDragging,
         pressStyle,
       ]}
@@ -164,7 +166,7 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging }: TimelineB
 
   return (
     <Animated.View
-      style={exitStyle}
+      style={[exitStyle, fill && { height: "100%" }]}
       onLayout={(e) => {
         if (rowHeight.value == null) {
           rowHeight.value = e.nativeEvent.layout.height;
@@ -177,6 +179,7 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging }: TimelineB
         onSwipeableWillOpen={handleSwipeOpen}
         overshootRight={false}
         rightThreshold={80}
+        containerStyle={fill ? { height: "100%" } : undefined}
       >
         {content}
       </Swipeable>

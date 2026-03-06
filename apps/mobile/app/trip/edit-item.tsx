@@ -24,7 +24,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTripStore } from "../../src/stores/tripStore";
 import { TimePicker } from "../../src/components/TimePicker";
+import { DatePicker } from "../../src/components/DatePicker";
 import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
+import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { colors, fonts, fontSize, spacing, radius } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
 import { transportModes, shouldCalculateDuration, getPlacesTypesForMode, getPlacesPlaceholderForMode } from "../../src/utils/transportModes";
@@ -117,12 +119,15 @@ export default function EditItemScreen() {
   const [price, setPrice] = useState(foundItem?.price != null ? String(foundItem.price) : "");
   const [notes, setNotes] = useState(foundItem?.notes ?? "");
   const [transportMode, setTransportMode] = useState(foundItem?.transportMode ?? "avion");
+  const [startDate, setStartDate] = useState(foundItem?.startDate ?? "");
+  const [endDate, setEndDate] = useState(foundItem?.endDate ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [durationSuggestion, setDurationSuggestion] = useState<{ duration: string; durationMinutes: number; mode: "driving" | "walking" } | null>(null);
   const [durationLoading, setDurationLoading] = useState(false);
 
   const isTransport = type === "transport";
+  const isAccommodation = type === "accommodation";
 
   useEffect(() => {
     if (!isTransport || !shouldCalculateDuration(transportMode) || !location.trim() || !arrivalLocation.trim()) {
@@ -183,8 +188,10 @@ export default function EditItemScreen() {
         type,
         title: finalTitle,
         description: description.trim() || undefined,
-        startTime: startTime.trim() || undefined,
-        endTime: endTime.trim() || undefined,
+        startTime: isAccommodation ? undefined : (startTime.trim() || undefined),
+        endTime: isAccommodation ? undefined : (endTime.trim() || undefined),
+        startDate: isAccommodation ? (startDate || undefined) : undefined,
+        endDate: isAccommodation ? (endDate || undefined) : undefined,
         location: location.trim() || undefined,
         arrivalLocation: arrivalLocation.trim() || undefined,
         transportMode: isTransport ? transportMode : undefined,
@@ -233,9 +240,13 @@ export default function EditItemScreen() {
     );
   }
 
-  const timeError = startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
-    ? "L'heure de fin doit être après l'heure de début"
-    : null;
+  const timeError = isAccommodation
+    ? (startDate && endDate && startDate >= endDate
+      ? "La date de check-out doit être après le check-in"
+      : null)
+    : (startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+      ? "L'heure de fin doit être après l'heure de début"
+      : null);
 
   const enterAnim = hasNavigated.current
     ? (direction === "forward" ? SlideInRight : SlideInLeft)
@@ -248,6 +259,7 @@ export default function EditItemScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={step === 1}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -444,12 +456,20 @@ export default function EditItemScreen() {
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: 200 }}
               >
-                <Text style={styles.stepEmoji}>⏰</Text>
+                <Text style={styles.stepEmoji}>{isAccommodation ? "\uD83D\uDCC5" : "\u23F0"}</Text>
                 <Text style={styles.question}>
-                  {isTransport ? "Horaires du trajet" : "Horaires et prix"}
+                  {isAccommodation
+                    ? "Dates du séjour"
+                    : isTransport
+                      ? "Horaires du trajet"
+                      : "Horaires et prix"}
                 </Text>
                 <Text style={styles.hint}>
-                  {isTransport ? "Heure de départ et d'arrivée" : "Tout est optionnel"}
+                  {isAccommodation
+                    ? "Dates de check-in et check-out"
+                    : isTransport
+                      ? "Heure de départ et d'arrivée"
+                      : "Tout est optionnel"}
                 </Text>
                 {isTransport && durationLoading && (
                   <View style={styles.durationBanner}>
@@ -459,7 +479,7 @@ export default function EditItemScreen() {
                 {isTransport && durationSuggestion && !durationLoading && (
                   <View style={styles.durationBanner}>
                     <Text style={styles.durationText}>
-                      {durationSuggestion.mode === "walking" ? "🚶" : "🚗"}{" "}
+                      {durationSuggestion.mode === "walking" ? "\uD83D\uDEB6" : "\uD83D\uDE97"}{" "}
                       Durée estimée : {durationSuggestion.duration}
                     </Text>
                     {startTime.trim() && !endTime.trim() && (
@@ -478,24 +498,46 @@ export default function EditItemScreen() {
                     )}
                   </View>
                 )}
-                <View style={styles.timeRow}>
-                  <View style={styles.timeHalf}>
-                    <TimePicker
-                      label={isTransport ? "Départ" : "Début"}
-                      value={startTime}
-                      onChange={setStartTime}
-                      placeholder={isTransport ? "14:30" : "09:00"}
-                    />
+                {isAccommodation ? (
+                  <View style={styles.timeRow}>
+                    <View style={styles.timeHalf}>
+                      <DatePicker
+                        label="Check-in"
+                        value={startDate}
+                        onChange={setStartDate}
+                        placeholder="Arrivée"
+                      />
+                    </View>
+                    <View style={styles.timeHalf}>
+                      <DatePicker
+                        label="Check-out"
+                        value={endDate}
+                        onChange={setEndDate}
+                        placeholder="Départ"
+                        minimumDate={startDate || undefined}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.timeHalf}>
-                    <TimePicker
-                      label={isTransport ? "Arrivée" : "Fin"}
-                      value={endTime}
-                      onChange={setEndTime}
-                      placeholder={isTransport ? "16:45" : "12:00"}
-                    />
+                ) : (
+                  <View style={styles.timeRow}>
+                    <View style={styles.timeHalf}>
+                      <TimePicker
+                        label={isTransport ? "Départ" : "Début"}
+                        value={startTime}
+                        onChange={setStartTime}
+                        placeholder={isTransport ? "14:30" : "09:00"}
+                      />
+                    </View>
+                    <View style={styles.timeHalf}>
+                      <TimePicker
+                        label={isTransport ? "Arrivée" : "Fin"}
+                        value={endTime}
+                        onChange={setEndTime}
+                        placeholder={isTransport ? "16:45" : "12:00"}
+                      />
+                    </View>
                   </View>
-                </View>
+                )}
                 {timeError && (
                   <Text style={styles.timeError}>{timeError}</Text>
                 )}
@@ -567,6 +609,7 @@ export default function EditItemScreen() {
             </Animated.View>
           )}
         </View>
+        <LoadingOverlay visible={isLoading} />
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );

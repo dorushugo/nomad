@@ -101,6 +101,8 @@ model Item {
   description     String?
   startTime       String?
   endTime         String?
+  startDate       String?
+  endDate         String?
   location        String?
   arrivalLocation String?
   transportMode   String?

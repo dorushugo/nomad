@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -14,6 +15,8 @@ import Animated, {
   SharedValue,
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
+  useDerivedValue,
   withSpring,
   withTiming,
   runOnJS,
@@ -24,9 +27,11 @@ import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
 import { Button } from "../../src/components/Button";
+import { AccommodationCard } from "../../src/components/AccommodationCard";
 import { colors, fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const HOUR_HEIGHT = 72;
 const START_HOUR = 6;
@@ -50,9 +55,12 @@ function parseTime(time: string): number | null {
 }
 
 function formatHour(hour: number): string {
+  "worklet";
   const h = Math.floor(hour);
   const m = Math.round((hour - h) * 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const hStr = h < 10 ? "0" + h : "" + h;
+  const mStr = m < 10 ? "0" + m : "" + m;
+  return hStr + ":" + mStr;
 }
 
 function snapToQuarter(hour: number): number {
@@ -89,9 +97,20 @@ function DraggableTimelineItem({
   onPress: () => void;
   onDelete: () => void;
 }) {
+  // Use shared values for position so Reanimated picks up changes on re-render
+  const topSV = useSharedValue(pos.top);
+  const heightSV = useSharedValue(pos.height);
+
+  useEffect(() => {
+    topSV.value = pos.top;
+    heightSV.value = pos.height;
+  }, [pos.top, pos.height]);
+
   const animStyle = useAnimatedStyle(() => {
     const isDragged = draggedItemId.value === item.id;
     return {
+      top: topSV.value,
+      height: heightSV.value,
       transform: [
         { translateY: isDragged ? dragDeltaY.value : 0 } as const,
         { scale: isDragged ? 1.04 : 1 } as const,
@@ -101,14 +120,8 @@ function DraggableTimelineItem({
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.timelineItem,
-        { top: pos.top, height: pos.height },
-        animStyle,
-      ]}
-    >
-      <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} />
+    <Animated.View style={[styles.timelineItem, animStyle]}>
+      <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} fill />
     </Animated.View>
   );
 }
@@ -204,12 +217,16 @@ export default function TripDetailScreen() {
         const y = touchStartY.current + TOUCH_Y_OFFSET;
         const touchHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
 
-        // Check if touch hits an existing scheduled item
+        // Check if touch hits the center zone of an existing scheduled item
         const hitItem = scheduledItemsRef.current.find((item) => {
           const startH = parseTime(item.startTime!);
           if (startH == null) return false;
           const endH = item.endTime ? parseTime(item.endTime) : startH + 0.75;
-          return touchHour >= startH && touchHour <= (endH ?? startH + 0.75);
+          const actualEnd = endH ?? startH + 0.75;
+          const duration = actualEnd - startH;
+          // Shrink hitbox: 25% inset on each side, max 15min
+          const inset = Math.min(duration * 0.25, 0.25);
+          return touchHour >= startH + inset && touchHour <= actualEnd - inset;
         });
 
         isDragging.current = true;
@@ -324,6 +341,15 @@ export default function TripDetailScreen() {
     };
   });
 
+  // Dynamic time label (runs on UI thread, no re-renders)
+  const selTimeLabel = useDerivedValue(() => {
+    if (!selVisible.value) return "";
+    return formatHour(selStartHour.value) + " — " + formatHour(selEndHour.value);
+  });
+  const selTimeLabelProps = useAnimatedProps(() => ({
+    text: selTimeLabel.value,
+  }));
+
   // Ref to pass currentDay to panResponder callbacks
   const currentDayRef = useRef<typeof currentDay>(null);
 
@@ -343,11 +369,29 @@ export default function TripDetailScreen() {
   currentDayRef.current = currentDay;
   const items = currentDay?.items ?? [];
 
-  const scheduledItems = items
+  // Accommodations: collect from all days and filter by date range
+  const allAccommodations = days.flatMap((day) =>
+    day.items.filter((item) => item.type === "accommodation")
+  );
+  const dayDateStr = currentDay?.date?.slice(0, 10) ?? "";
+  const activeAccommodations = allAccommodations.filter((acc) => {
+    if (acc.startDate && acc.endDate) {
+      return acc.startDate <= dayDateStr && dayDateStr <= acc.endDate;
+    }
+    return acc.dayId === currentDay?.id;
+  });
+  const uniqueAccommodations = [
+    ...new Map(activeAccommodations.map((a) => [a.id, a])).values(),
+  ];
+
+  // Exclude accommodations from the timeline
+  const nonAccommodationItems = items.filter((i) => i.type !== "accommodation");
+
+  const scheduledItems = nonAccommodationItems
     .filter((i) => i.startTime && parseTime(i.startTime) != null)
     .sort((a, b) => parseTime(a.startTime!)! - parseTime(b.startTime!)!);
   scheduledItemsRef.current = scheduledItems;
-  const unscheduledItems = items.filter(
+  const unscheduledItems = nonAccommodationItems.filter(
     (i) => !i.startTime || parseTime(i.startTime) == null
   );
 
@@ -426,6 +470,21 @@ export default function TripDetailScreen() {
           })}
         </ScrollView>
 
+        {/* Accommodations */}
+        {uniqueAccommodations.length > 0 && (
+          <View style={styles.accommodationSection}>
+            {uniqueAccommodations.map((acc) => (
+              <AccommodationCard
+                key={acc.id}
+                item={acc}
+                onPress={() =>
+                  router.push(`/trip/edit-item?itemId=${acc.id}`)
+                }
+              />
+            ))}
+          </View>
+        )}
+
         {/* Timeline */}
         <ScrollView
           ref={scrollViewRef}
@@ -475,7 +534,11 @@ export default function TripDetailScreen() {
               pointerEvents="none"
             >
               <View style={styles.selectionContent}>
-                <Text style={styles.selectionHint}>Nouvel élément</Text>
+                <AnimatedTextInput
+                  editable={false}
+                  animatedProps={selTimeLabelProps}
+                  style={styles.selectionHint}
+                />
               </View>
             </Animated.View>
 
@@ -702,6 +765,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.rose,
     marginTop: 3,
   },
+  // Accommodations
+  accommodationSection: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
   // Timeline
   timelineScroll: {
     flex: 1,
@@ -756,11 +824,15 @@ const styles = StyleSheet.create({
   },
   selectionContent: {
     alignItems: "center",
+    width: "100%",
   },
   selectionHint: {
     fontFamily: fonts.medium,
     fontSize: fontSize.xs,
     color: colors.rose,
+    textAlign: "center" as const,
+    padding: 0,
+    width: "100%",
   },
   // Items
   timelineItem: {

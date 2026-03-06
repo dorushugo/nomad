@@ -20,6 +20,8 @@ export interface Item {
   description?: string;
   startTime?: string;
   endTime?: string;
+  startDate?: string;
+  endDate?: string;
   location?: string;
   arrivalLocation?: string;
   transportMode?: string;

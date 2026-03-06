@@ -24,7 +24,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTripStore } from "../../src/stores/tripStore";
 import { TimePicker } from "../../src/components/TimePicker";
+import { DatePicker } from "../../src/components/DatePicker";
 import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
+import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { colors, fonts, fontSize, spacing, radius } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
 import { transportModes, shouldCalculateDuration, getPlacesTypesForMode, getPlacesPlaceholderForMode } from "../../src/utils/transportModes";
@@ -109,8 +111,13 @@ export default function AddItemScreen() {
   const [notes, setNotes] = useState("");
   const [transportMode, setTransportMode] = useState("avion");
   const [isLoading, setIsLoading] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [durationSuggestion, setDurationSuggestion] = useState<{ duration: string; durationMinutes: number; mode: "driving" | "walking" } | null>(null);
   const [durationLoading, setDurationLoading] = useState(false);
+
+  const isAccommodation = type === "accommodation";
+  const isTransport = type === "transport";
 
   useEffect(() => {
     if (!isTransport || !shouldCalculateDuration(transportMode) || !location.trim() || !arrivalLocation.trim()) {
@@ -126,8 +133,6 @@ export default function AddItemScreen() {
     });
     return () => { cancelled = true; };
   }, [isTransport, transportMode, location, arrivalLocation]);
-
-  const isTransport = type === "transport";
 
   const next = () => {
     hasNavigated.current = true;
@@ -162,8 +167,10 @@ export default function AddItemScreen() {
         type,
         title: finalTitle,
         description: description.trim() || undefined,
-        startTime: startTime.trim() || undefined,
-        endTime: endTime.trim() || undefined,
+        startTime: isAccommodation ? undefined : (startTime.trim() || undefined),
+        endTime: isAccommodation ? undefined : (endTime.trim() || undefined),
+        startDate: isAccommodation ? (startDate || undefined) : undefined,
+        endDate: isAccommodation ? (endDate || undefined) : undefined,
         location: location.trim() || undefined,
         arrivalLocation: arrivalLocation.trim() || undefined,
         transportMode: isTransport ? transportMode : undefined,
@@ -178,9 +185,13 @@ export default function AddItemScreen() {
     }
   };
 
-  const timeError = startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
-    ? "L'heure de fin doit être après l'heure de début"
-    : null;
+  const timeError = isAccommodation
+    ? (startDate && endDate && startDate >= endDate
+      ? "La date de check-out doit être après le check-in"
+      : null)
+    : (startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+      ? "L'heure de fin doit être après l'heure de début"
+      : null);
 
   const hasNavigated = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -203,6 +214,7 @@ export default function AddItemScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        enabled={step === 1}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -397,14 +409,20 @@ export default function AddItemScreen() {
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: 200 }}
               >
-                <Text style={styles.stepEmoji}>⏰</Text>
+                <Text style={styles.stepEmoji}>{isAccommodation ? "\uD83D\uDCC5" : "\u23F0"}</Text>
                 <Text style={styles.question}>
-                  {isTransport ? "Horaires du trajet" : "Quand et combien ?"}
+                  {isAccommodation
+                    ? "Dates du séjour"
+                    : isTransport
+                      ? "Horaires du trajet"
+                      : "Quand et combien ?"}
                 </Text>
                 <Text style={styles.hint}>
-                  {isTransport
-                    ? "Heure de départ et d'arrivée"
-                    : "Tout est optionnel, tu pourras compléter plus tard"}
+                  {isAccommodation
+                    ? "Dates de check-in et check-out"
+                    : isTransport
+                      ? "Heure de départ et d'arrivée"
+                      : "Tout est optionnel, tu pourras compléter plus tard"}
                 </Text>
                 {isTransport && durationLoading && (
                   <View style={styles.durationBanner}>
@@ -414,7 +432,7 @@ export default function AddItemScreen() {
                 {isTransport && durationSuggestion && !durationLoading && (
                   <View style={styles.durationBanner}>
                     <Text style={styles.durationText}>
-                      {durationSuggestion.mode === "walking" ? "🚶" : "🚗"}{" "}
+                      {durationSuggestion.mode === "walking" ? "\uD83D\uDEB6" : "\uD83D\uDE97"}{" "}
                       Durée estimée : {durationSuggestion.duration}
                     </Text>
                     {startTime.trim() && !endTime.trim() && (
@@ -433,24 +451,46 @@ export default function AddItemScreen() {
                     )}
                   </View>
                 )}
-                <View style={styles.timeRow}>
-                  <View style={styles.timeHalf}>
-                    <TimePicker
-                      label={isTransport ? "Départ" : "Début"}
-                      value={startTime}
-                      onChange={setStartTime}
-                      placeholder={isTransport ? "14:30" : "09:00"}
-                    />
+                {isAccommodation ? (
+                  <View style={styles.timeRow}>
+                    <View style={styles.timeHalf}>
+                      <DatePicker
+                        label="Check-in"
+                        value={startDate}
+                        onChange={setStartDate}
+                        placeholder="Arrivée"
+                      />
+                    </View>
+                    <View style={styles.timeHalf}>
+                      <DatePicker
+                        label="Check-out"
+                        value={endDate}
+                        onChange={setEndDate}
+                        placeholder="Départ"
+                        minimumDate={startDate || undefined}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.timeHalf}>
-                    <TimePicker
-                      label={isTransport ? "Arrivée" : "Fin"}
-                      value={endTime}
-                      onChange={setEndTime}
-                      placeholder={isTransport ? "16:45" : "12:00"}
-                    />
+                ) : (
+                  <View style={styles.timeRow}>
+                    <View style={styles.timeHalf}>
+                      <TimePicker
+                        label={isTransport ? "Départ" : "Début"}
+                        value={startTime}
+                        onChange={setStartTime}
+                        placeholder={isTransport ? "14:30" : "09:00"}
+                      />
+                    </View>
+                    <View style={styles.timeHalf}>
+                      <TimePicker
+                        label={isTransport ? "Arrivée" : "Fin"}
+                        value={endTime}
+                        onChange={setEndTime}
+                        placeholder={isTransport ? "16:45" : "12:00"}
+                      />
+                    </View>
                   </View>
-                </View>
+                )}
                 {timeError && (
                   <Text style={styles.timeError}>{timeError}</Text>
                 )}
@@ -501,6 +541,7 @@ export default function AddItemScreen() {
             </Animated.View>
           )}
         </View>
+        <LoadingOverlay visible={isLoading} />
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );

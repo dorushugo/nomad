@@ -24,7 +24,7 @@ export function getTransportModeEmoji(mode: string | undefined): string {
 export function getPlacesTypesForMode(mode: string | undefined): string {
   switch (mode) {
     case "avion": return "airport";
-    case "train": return "train_station";
+    case "train": return "transit_station";
     default: return "establishment";
   }
 }

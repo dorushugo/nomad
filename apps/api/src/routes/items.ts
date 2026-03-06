@@ -13,6 +13,8 @@ const updateItemSchema = z.object({
   description: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   location: z.string().optional(),
   arrivalLocation: z.string().optional(),
   transportMode: z.string().optional(),
