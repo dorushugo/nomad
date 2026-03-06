@@ -183,6 +183,15 @@ export default function AddItemScreen() {
     : null;
 
   const hasNavigated = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldOffsets = useRef<Record<string, number>>({});
+  const handleInputFocus = (y: number) => {
+    setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
+  };
+  const registerField = (name: string) => ({
+    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
+  });
   const enterAnim = hasNavigated.current
     ? (direction === "forward" ? SlideInRight : SlideInLeft)
     : undefined;
@@ -265,9 +274,11 @@ export default function AddItemScreen() {
               style={styles.step}
             >
               <ScrollView
+                ref={scrollViewRef}
                 style={styles.fieldContainer}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 200 }}
               >
                 <Text style={styles.stepEmoji}>{typeConfig.emoji}</Text>
                 <Text style={styles.question}>
@@ -314,6 +325,7 @@ export default function AddItemScreen() {
                       value={title}
                       onChangeText={setTitle}
                       selectionColor={colors.rose}
+                      {...registerField("title")}
                       autoFocus
                     />
                     <TextInput
@@ -323,6 +335,7 @@ export default function AddItemScreen() {
                       value={description}
                       onChangeText={setDescription}
                       selectionColor={colors.rose}
+                      {...registerField("description")}
                       multiline
                       numberOfLines={2}
                     />
@@ -332,6 +345,7 @@ export default function AddItemScreen() {
                   label={isTransport ? "Départ" : "Lieu"}
                   value={location}
                   onSelect={setLocation}
+                  onInputFocus={handleInputFocus}
                   placeholder={
                     isTransport
                       ? getPlacesPlaceholderForMode(transportMode)
@@ -346,6 +360,7 @@ export default function AddItemScreen() {
                     label="Arrivée"
                     value={arrivalLocation}
                     onSelect={setArrivalLocation}
+                    onInputFocus={handleInputFocus}
                     placeholder={getPlacesPlaceholderForMode(transportMode)}
                     types={getPlacesTypesForMode(transportMode)}
                   />
@@ -376,9 +391,11 @@ export default function AddItemScreen() {
               style={styles.step}
             >
               <ScrollView
+                ref={scrollViewRef}
                 style={styles.fieldContainer}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 200 }}
               >
                 <Text style={styles.stepEmoji}>⏰</Text>
                 <Text style={styles.question}>
@@ -444,6 +461,7 @@ export default function AddItemScreen() {
                   value={price}
                   onChangeText={setPrice}
                   selectionColor={colors.rose}
+                  {...registerField("price")}
                   keyboardType="decimal-pad"
                 />
                 <TextInput
@@ -457,6 +475,7 @@ export default function AddItemScreen() {
                   value={notes}
                   onChangeText={setNotes}
                   selectionColor={colors.rose}
+                  {...registerField("notes")}
                   multiline
                   numberOfLines={2}
                 />

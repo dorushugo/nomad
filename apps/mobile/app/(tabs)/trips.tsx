@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -22,13 +22,20 @@ import { colors, fonts, fontSize, spacing, radius, shadow } from "../../src/them
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function TripsScreen() {
-  const { trips, isLoading, fetchTrips } = useTripStore();
+  const { trips, fetchTrips } = useTripStore();
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       fetchTrips();
     }, [])
   );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchTrips();
+    setRefreshing(false);
+  };
 
   // FAB animation
   const fabScale = useSharedValue(1);
@@ -62,8 +69,8 @@ export default function TripsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={fetchTrips}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             tintColor={colors.rose}
           />
         }

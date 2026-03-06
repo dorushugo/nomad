@@ -8,13 +8,15 @@ import {
   Alert,
   RefreshControl,
   PanResponder,
-  LayoutChangeEvent,
 } from "react-native";
 import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
 import Animated, {
+  SharedValue,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { Plus } from "lucide-react-native";
 import { useTripStore, Item } from "../../src/stores/tripStore";
@@ -72,22 +74,68 @@ function getItemPosition(item: Item) {
   return { top, height };
 }
 
+function DraggableTimelineItem({
+  item,
+  pos,
+  draggedItemId,
+  dragDeltaY,
+  onPress,
+  onDelete,
+}: {
+  item: Item;
+  pos: { top: number; height: number };
+  draggedItemId: SharedValue<string>;
+  dragDeltaY: SharedValue<number>;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const animStyle = useAnimatedStyle(() => {
+    const isDragged = draggedItemId.value === item.id;
+    return {
+      transform: [
+        { translateY: isDragged ? dragDeltaY.value : 0 } as const,
+        { scale: isDragged ? 1.04 : 1 } as const,
+      ],
+      zIndex: isDragged ? 100 : 2,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.timelineItem,
+        { top: pos.top, height: pos.height },
+        animStyle,
+      ]}
+    >
+      <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} />
+    </Animated.View>
+  );
+}
+
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, fetchTrip, deleteTrip, deleteItem } = useTripStore();
+  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem } = useTripStore();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
-  // Drag selection state
-  const [dragSelection, setDragSelection] = useState<{
-    startHour: number;
-    endHour: number;
-  } | null>(null);
+  // Drag selection (shared values for 60fps)
+  const selStartHour = useSharedValue(0);
+  const selEndHour = useSharedValue(0);
+  const selVisible = useSharedValue(false);
   const gridOriginY = useRef(0);
   const scrollOffsetY = useRef(0);
   const isDragging = useRef(false);
+  const [scrollLocked, setScrollLocked] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Drag-to-move existing items
+  const dragMode = useRef<"create" | "move">("create");
+  const draggedItemId = useSharedValue("");
+  const dragDeltaY = useSharedValue(0);
+  const dragItemOriginal = useRef<{ itemId: string; startHour: number; endHour: number } | null>(null);
+  const scheduledItemsRef = useRef<Item[]>([]);
 
   const trip = trips.find((t) => t.id === id);
 
@@ -133,7 +181,16 @@ export default function TripDetailScreen() {
   const touchStartTime = useRef(0);
   const touchStartY = useRef(0);
   const dragAnchorHour = useRef(0);
-  const LONG_PRESS_DELAY = 200;
+  const LONG_PRESS_DELAY = 150;
+
+  const navigateToAddItem = useCallback((startH: number, endH: number) => {
+    const day = currentDayRef.current;
+    if (day) {
+      router.push(
+        `/trip/add-item?dayId=${day.id}&startTime=${formatHour(startH)}&endTime=${formatHour(endH)}`
+      );
+    }
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -145,51 +202,127 @@ export default function TripDetailScreen() {
       },
       onPanResponderGrant: () => {
         const y = touchStartY.current + TOUCH_Y_OFFSET;
-        const hour = yToHour(Math.max(0, y));
-        const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR, hour));
-        dragAnchorHour.current = clampedHour;
-        isDragging.current = true;
-        setDragSelection({
-          startHour: clampedHour,
-          endHour: Math.min(clampedHour + 0.25, END_HOUR + 1),
+        const touchHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
+
+        // Check if touch hits an existing scheduled item
+        const hitItem = scheduledItemsRef.current.find((item) => {
+          const startH = parseTime(item.startTime!);
+          if (startH == null) return false;
+          const endH = item.endTime ? parseTime(item.endTime) : startH + 0.75;
+          return touchHour >= startH && touchHour <= (endH ?? startH + 0.75);
         });
+
+        isDragging.current = true;
+        setScrollLocked(true);
+
+        if (hitItem) {
+          // Move existing item
+          dragMode.current = "move";
+          const startH = parseTime(hitItem.startTime!)!;
+          const endH = hitItem.endTime ? parseTime(hitItem.endTime)! : startH + 0.75;
+          dragItemOriginal.current = { itemId: hitItem.id, startHour: startH, endHour: endH };
+          draggedItemId.value = hitItem.id;
+          dragDeltaY.value = 0;
+          dragAnchorHour.current = touchHour;
+        } else {
+          // Create new item
+          dragMode.current = "create";
+          const hour = yToHour(Math.max(0, y));
+          const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR, hour));
+          dragAnchorHour.current = clampedHour;
+          selStartHour.value = clampedHour;
+          selEndHour.value = Math.min(clampedHour + 0.25, END_HOUR + 1);
+          selVisible.value = true;
+        }
       },
       onPanResponderMove: (evt) => {
         if (!isDragging.current) return;
         const y = evt.nativeEvent.locationY + TOUCH_Y_OFFSET;
-        const hour = yToHour(Math.max(0, y));
-        const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR + 1, hour));
-        const anchor = dragAnchorHour.current;
 
-        setDragSelection({
-          startHour: Math.min(anchor, clampedHour),
-          endHour: Math.max(anchor + 0.25, Math.max(anchor, clampedHour)),
-        });
+        if (dragMode.current === "move") {
+          const currentHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
+          const deltaHours = currentHour - dragAnchorHour.current;
+          dragDeltaY.value = deltaHours * HOUR_HEIGHT;
+        } else {
+          const hour = yToHour(Math.max(0, y));
+          const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR + 1, hour));
+          const anchor = dragAnchorHour.current;
+          selStartHour.value = Math.min(anchor, clampedHour);
+          selEndHour.value = Math.max(anchor + 0.25, Math.max(anchor, clampedHour));
+        }
       },
       onPanResponderRelease: () => {
         isDragging.current = false;
-        setDragSelection((sel) => {
-          if (sel && sel.endHour - sel.startHour >= 0.25) {
-            setTimeout(() => {
-              const startTime = formatHour(sel.startHour);
-              const endTime = formatHour(sel.endHour);
-              const day = currentDayRef.current;
-              if (day) {
-                router.push(
-                  `/trip/add-item?dayId=${day.id}&startTime=${startTime}&endTime=${endTime}`
-                );
-              }
-            }, 50);
+        setScrollLocked(false);
+
+        if (dragMode.current === "move" && dragItemOriginal.current) {
+          const orig = dragItemOriginal.current;
+          const deltaHours = dragDeltaY.value / HOUR_HEIGHT;
+          const duration = orig.endHour - orig.startHour;
+          const newStart = snapToQuarter(orig.startHour + deltaHours);
+          const clampedStart = Math.max(START_HOUR, Math.min(END_HOUR + 1 - duration, newStart));
+          const clampedEnd = clampedStart + duration;
+
+          // Reset drag visuals
+          draggedItemId.value = "";
+          dragDeltaY.value = 0;
+          dragItemOriginal.current = null;
+
+          if (Math.abs(clampedStart - orig.startHour) >= 0.01) {
+            const newStartTime = formatHour(clampedStart);
+            const newEndTime = formatHour(clampedEnd);
+            // Optimistic store update for instant visual feedback
+            useTripStore.setState((state) => ({
+              trips: state.trips.map((trip) => ({
+                ...trip,
+                days: trip.days.map((day) => ({
+                  ...day,
+                  items: day.items.map((item) =>
+                    item.id === orig.itemId
+                      ? { ...item, startTime: newStartTime, endTime: newEndTime }
+                      : item
+                  ),
+                })),
+              })),
+            }));
+            // Persist to API
+            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime });
           }
-          return null;
-        });
+        } else {
+          // Create mode
+          const startH = selStartHour.value;
+          const endH = selEndHour.value;
+          selVisible.value = false;
+          if (endH - startH >= 0.25) {
+            navigateToAddItem(startH, endH);
+          }
+        }
       },
       onPanResponderTerminate: () => {
         isDragging.current = false;
-        setDragSelection(null);
+        setScrollLocked(false);
+        if (dragMode.current === "move") {
+          draggedItemId.value = "";
+          dragDeltaY.value = 0;
+          dragItemOriginal.current = null;
+        } else {
+          selVisible.value = false;
+        }
       },
     })
   ).current;
+
+  // Animated overlay style (no re-renders during drag)
+  const selectionAnimStyle = useAnimatedStyle(() => {
+    if (!selVisible.value) {
+      return { opacity: 0, top: 0, height: 0 };
+    }
+    return {
+      opacity: 1,
+      top: (selStartHour.value - START_HOUR) * HOUR_HEIGHT + 8,
+      height: (selEndHour.value - selStartHour.value) * HOUR_HEIGHT,
+    };
+  });
 
   // Ref to pass currentDay to panResponder callbacks
   const currentDayRef = useRef<typeof currentDay>(null);
@@ -213,17 +346,10 @@ export default function TripDetailScreen() {
   const scheduledItems = items
     .filter((i) => i.startTime && parseTime(i.startTime) != null)
     .sort((a, b) => parseTime(a.startTime!)! - parseTime(b.startTime!)!);
+  scheduledItemsRef.current = scheduledItems;
   const unscheduledItems = items.filter(
     (i) => !i.startTime || parseTime(i.startTime) == null
   );
-
-  // Selection overlay position
-  const selectionStyle = dragSelection
-    ? {
-        top: (dragSelection.startHour - START_HOUR) * HOUR_HEIGHT,
-        height: (dragSelection.endHour - dragSelection.startHour) * HOUR_HEIGHT,
-      }
-    : null;
 
   return (
     <>
@@ -306,7 +432,7 @@ export default function TripDetailScreen() {
           style={styles.timelineScroll}
           contentContainerStyle={styles.timelineContent}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={!isDragging.current}
+          scrollEnabled={!scrollLocked}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -344,40 +470,31 @@ export default function TripDetailScreen() {
             ))}
 
             {/* Drag selection overlay */}
-            {selectionStyle && (
-              <View
-                style={[styles.selectionOverlay, selectionStyle]}
-                pointerEvents="none"
-              >
-                <View style={styles.selectionContent}>
-                  <Text style={styles.selectionTime}>
-                    {formatHour(dragSelection!.startHour)} — {formatHour(dragSelection!.endHour)}
-                  </Text>
-                  <Text style={styles.selectionHint}>Nouvel élément</Text>
-                </View>
+            <Animated.View
+              style={[styles.selectionOverlay, selectionAnimStyle]}
+              pointerEvents="none"
+            >
+              <View style={styles.selectionContent}>
+                <Text style={styles.selectionHint}>Nouvel élément</Text>
               </View>
-            )}
+            </Animated.View>
 
-            {/* Scheduled items */}
+            {/* Scheduled items (draggable) */}
             {scheduledItems.map((item) => {
               const pos = getItemPosition(item);
               if (!pos) return null;
               return (
-                <View
+                <DraggableTimelineItem
                   key={item.id}
-                  style={[
-                    styles.timelineItem,
-                    { top: pos.top, height: pos.height },
-                  ]}
-                >
-                  <TimelineBlock
-                    item={item}
-                    onPress={() =>
-                      router.push(`/trip/edit-item?itemId=${item.id}`)
-                    }
-                    onDelete={() => deleteItem(item.id)}
-                  />
-                </View>
+                  item={item}
+                  pos={pos}
+                  draggedItemId={draggedItemId}
+                  dragDeltaY={dragDeltaY}
+                  onPress={() =>
+                    router.push(`/trip/edit-item?itemId=${item.id}`)
+                  }
+                  onDelete={() => deleteItem(item.id)}
+                />
               );
             })}
 
@@ -595,6 +712,7 @@ const styles = StyleSheet.create({
   },
   timelineGrid: {
     position: "relative",
+    paddingTop: 8,
   },
   hourRow: {
     position: "absolute",
@@ -639,16 +757,10 @@ const styles = StyleSheet.create({
   selectionContent: {
     alignItems: "center",
   },
-  selectionTime: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.rose,
-  },
   selectionHint: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xxs,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
     color: colors.rose,
-    marginTop: 2,
   },
   // Items
   timelineItem: {

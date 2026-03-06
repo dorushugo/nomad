@@ -28,6 +28,7 @@ interface PlacesAutocompleteProps {
   onSelect: (place: string) => void;
   onSelectIata?: (iataCode: string | null) => void;
   onCountryDetected?: (flagEmoji: string) => void;
+  onInputFocus?: (y: number) => void;
   placeholder?: string;
   types?: string;
 }
@@ -64,6 +65,7 @@ export function PlacesAutocomplete({
   onSelect,
   onSelectIata,
   onCountryDetected,
+  onInputFocus,
   placeholder = "Rechercher une ville ou un pays...",
   types = "(regions)",
 }: PlacesAutocompleteProps) {
@@ -72,6 +74,7 @@ export function PlacesAutocomplete({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperY = useRef(0);
 
   useEffect(() => {
     setPredictions([]);
@@ -138,7 +141,7 @@ export function PlacesAutocomplete({
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} onLayout={(e) => { wrapperY.current = e.nativeEvent.layout.y; }}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputRow}>
         <TextInput
@@ -147,7 +150,7 @@ export function PlacesAutocomplete({
           placeholderTextColor={colors.grayMuted}
           value={query}
           onChangeText={handleChangeText}
-          onFocus={() => setShowResults(true)}
+          onFocus={() => { setShowResults(true); onInputFocus?.(wrapperY.current); }}
           selectionColor={colors.rose}
           autoCorrect={false}
         />

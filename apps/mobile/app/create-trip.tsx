@@ -44,6 +44,15 @@ export default function CreateTripScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const createTrip = useTripStore((s) => s.createTrip);
   const hasNavigated = useRef(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldOffsets = useRef<Record<string, number>>({});
+  const handleInputFocus = (y: number) => {
+    setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
+  };
+  const registerField = (name: string) => ({
+    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
+  });
 
   const next = () => {
     Keyboard.dismiss();
@@ -140,15 +149,22 @@ export default function CreateTripScreen() {
               Choisis ta destination pour commencer
             </Text>
 
-            <View style={styles.fieldContainer}>
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.fieldContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 200 }}
+            >
               <PlacesAutocomplete
                 label=""
                 value={destination}
                 onSelect={setDestination}
                 onCountryDetected={handleCountryDetected}
+                onInputFocus={handleInputFocus}
                 placeholder="Rechercher une ville ou un pays..."
               />
-            </View>
+            </ScrollView>
 
             <View style={styles.footer}>
               <Pressable
@@ -181,7 +197,13 @@ export default function CreateTripScreen() {
               Un petit nom pour t'y retrouver
             </Text>
 
-            <View style={styles.fieldContainer}>
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.fieldContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 200 }}
+            >
               <TextInput
                 style={styles.input}
                 placeholder="Ex: Road trip en Italie"
@@ -189,6 +211,7 @@ export default function CreateTripScreen() {
                 value={title}
                 onChangeText={setTitle}
                 selectionColor={colors.rose}
+                {...registerField("title")}
                 autoFocus
               />
               <TextInput
@@ -198,10 +221,11 @@ export default function CreateTripScreen() {
                 value={description}
                 onChangeText={setDescription}
                 selectionColor={colors.rose}
+                {...registerField("description")}
                 multiline
                 numberOfLines={2}
               />
-            </View>
+            </ScrollView>
 
             <View style={styles.footer}>
               <Pressable

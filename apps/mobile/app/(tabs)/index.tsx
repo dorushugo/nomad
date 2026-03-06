@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -75,13 +75,20 @@ function formatDate(dateStr: string) {
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
-  const { trips, isLoading, fetchTrips } = useTripStore();
+  const { trips, fetchTrips } = useTripStore();
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       fetchTrips();
     }, [])
   );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchTrips();
+    setRefreshing(false);
+  };
 
   const currentTrip = getCurrentTrip(trips);
   const nextTrip = !currentTrip ? getNextTrip(trips) : null;
@@ -115,8 +122,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={fetchTrips}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             tintColor={colors.rose}
           />
         }
@@ -394,7 +401,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: fontSize.display,
     color: colors.rose,
-    lineHeight: fontSize.display + 4,
+    lineHeight: fontSize.display * 1.2,
   },
   countdownLabel: {
     fontFamily: fonts.medium,
