@@ -292,9 +292,9 @@ export default function TripDetailScreen() {
             useTripStore.setState((state) => ({
               trips: state.trips.map((trip) => ({
                 ...trip,
-                days: trip.days.map((day) => ({
+                days: (trip.days ?? []).map((day) => ({
                   ...day,
-                  items: day.items.map((item) =>
+                  items: (day.items ?? []).map((item) =>
                     item.id === orig.itemId
                       ? { ...item, startTime: newStartTime, endTime: newEndTime }
                       : item
@@ -371,7 +371,7 @@ export default function TripDetailScreen() {
 
   // Accommodations: collect from all days and filter by date range
   const allAccommodations = days.flatMap((day) =>
-    day.items.filter((item) => item.type === "accommodation")
+    (day.items ?? []).filter((item) => item.type === "accommodation")
   );
   const dayDateStr = currentDay?.date?.slice(0, 10) ?? "";
   const activeAccommodations = allAccommodations.filter((acc) => {
@@ -447,7 +447,7 @@ export default function TripDetailScreen() {
           {days.map((day, index) => {
             const { dayName, dayNum } = formatDayLabel(day.date);
             const isActive = index === selectedDayIndex;
-            const hasItems = day.items && day.items.length > 0;
+            const hasItems = (day.items ?? []).length > 0;
             return (
               <Pressable
                 key={day.id}

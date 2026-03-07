@@ -51,6 +51,30 @@ export interface Trip {
   days: Day[];
 }
 
+type RawDay = Omit<Day, "items"> & { items?: Item[] };
+type RawTrip = Omit<Trip, "days"> & { days?: RawDay[] };
+
+function normalizeItem(item: Item): Item {
+  return {
+    ...item,
+    documents: item.documents ?? [],
+  };
+}
+
+function normalizeDay(day: RawDay): Day {
+  return {
+    ...day,
+    items: (day.items ?? []).map(normalizeItem),
+  };
+}
+
+function normalizeTrip(trip: RawTrip): Trip {
+  return {
+    ...trip,
+    days: (trip.days ?? []).map(normalizeDay),
+  };
+}
+
 interface TripState {
   trips: Trip[];
   isLoading: boolean;
@@ -81,7 +105,7 @@ export const useTripStore = create<TripState>()(
       fetchTrips: async () => {
         set({ isLoading: true });
         try {
-          const trips = await api.get("/trips");
+          const trips = (await api.get("/trips")).map(normalizeTrip);
           set({ trips, isLoading: false });
         } catch {
           set({ isLoading: false });
@@ -89,15 +113,17 @@ export const useTripStore = create<TripState>()(
       },
 
       fetchTrip: async (id) => {
-        const trip = await api.get(`/trips/${id}`);
+        const trip = normalizeTrip(await api.get(`/trips/${id}`));
         set((state) => ({
-          trips: state.trips.map((t) => (t.id === id ? trip : t)),
+          trips: state.trips.some((t) => t.id === id)
+            ? state.trips.map((t) => (t.id === id ? trip : t))
+            : [...state.trips, trip],
         }));
         return trip;
       },
 
       createTrip: async (data) => {
-        const trip = await api.post("/trips", data);
+        const trip = normalizeTrip(await api.post("/trips", data));
         set((state) => ({ trips: [...state.trips, trip] }));
         return trip;
       },
@@ -108,12 +134,12 @@ export const useTripStore = create<TripState>()(
       },
 
       addItem: async (dayId, data) => {
-        const item = await api.post(`/days/${dayId}/items`, data);
+        const item = normalizeItem(await api.post(`/days/${dayId}/items`, data));
         set((state) => ({
           trips: state.trips.map((trip) => ({
             ...trip,
             days: trip.days.map((day) =>
-              day.id === dayId ? { ...day, items: [...day.items, item] } : day
+              day.id === dayId ? { ...day, items: [...(day.items ?? []), item] } : day
             ),
           })),
         }));
@@ -121,13 +147,13 @@ export const useTripStore = create<TripState>()(
       },
 
       updateItem: async (itemId, data) => {
-        const updated = await api.put(`/items/${itemId}`, data);
+        const updated = normalizeItem(await api.put(`/items/${itemId}`, data));
         set((state) => ({
           trips: state.trips.map((trip) => ({
             ...trip,
             days: trip.days.map((day) => ({
               ...day,
-              items: day.items.map((item) =>
+              items: (day.items ?? []).map((item) =>
                 item.id === itemId ? { ...item, ...updated } : item
               ),
             })),
@@ -142,7 +168,7 @@ export const useTripStore = create<TripState>()(
             ...trip,
             days: trip.days.map((day) => ({
               ...day,
-              items: day.items.filter((item) => item.id !== itemId),
+              items: (day.items ?? []).filter((item) => item.id !== itemId),
             })),
           })),
         }));
@@ -167,7 +193,7 @@ export const useTripStore = create<TripState>()(
             ...trip,
             days: trip.days.map((day) => ({
               ...day,
-              items: day.items.map((item) =>
+              items: (day.items ?? []).map((item) =>
                 item.id === itemId
                   ? { ...item, documents: [...(item.documents ?? []), document] }
                   : item
@@ -185,7 +211,7 @@ export const useTripStore = create<TripState>()(
             ...trip,
             days: trip.days.map((day) => ({
               ...day,
-              items: day.items.map((item) => ({
+              items: (day.items ?? []).map((item) => ({
                 ...item,
                 documents: (item.documents ?? []).filter((d) => d.id !== documentId),
               })),

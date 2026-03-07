@@ -36,7 +36,6 @@ export default function RootLayout() {
             fontSize: 18,
           },
           headerShadowVisible: false,
-          headerBackTitleVisible: false,
           headerBackTitle: "",
           contentStyle: { backgroundColor: colors.grayLight },
           animation: "slide_from_right",

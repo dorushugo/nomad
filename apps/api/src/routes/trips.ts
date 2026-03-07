@@ -73,10 +73,15 @@ tripsRouter.post("/", async (c) => {
         users: { create: { userId, role: "owner" } },
         days: { create: days },
       },
-      include: { days: true },
+      include: {
+        days: {
+          include: { items: { include: { documents: true }, orderBy: { order: "asc" } } },
+          orderBy: { date: "asc" },
+        },
+      },
     });
 
-    return c.json(trip, 201);
+    return c.json(await signTripDocuments(trip), 201);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: error.errors }, 400);

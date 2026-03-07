@@ -6,8 +6,7 @@ import { daysRouter } from "./routes/days";
 import { itemsRouter } from "./routes/items";
 import { documentsRouter } from "./routes/documents";
 
-
-const app = new Hono();
+export const app = new Hono();
 
 app.use("*", cors());
 
@@ -43,9 +42,9 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 const port = Number(process.env.PORT) || 3000;
 
-export default {
+const server = Bun.serve({
   port,
   fetch: app.fetch,
-};
+});
 
-console.log(`Nomad API running on http://localhost:${port}`);
+console.log(`Nomad API running on http://${server.hostname}:${server.port}`);

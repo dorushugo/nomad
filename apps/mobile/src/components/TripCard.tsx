@@ -5,7 +5,13 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { colors, fonts, fontSize, radius, spacing, shadow } from "../theme";
-import { Trip } from "../stores/tripStore";
+import type { Trip } from "../stores/tripStore";
+import {
+  formatTripDate,
+  getDaysUntil,
+  getTotalDays,
+  getTripStatus,
+} from "../utils/tripDates";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SPRING_CONFIG = { damping: 15, stiffness: 400, mass: 0.8 };
@@ -45,19 +51,6 @@ function getDestinationEmoji(destination: string) {
   return "✈️";
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function getDayCount(trip: Trip) {
-  const start = new Date(trip.startDate);
-  const end = new Date(trip.endDate);
-  return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-}
-
 function getItemCount(trip: Trip) {
   return trip.days?.reduce((acc, day) => acc + (day.items?.length || 0), 0) || 0;
 }
@@ -69,9 +62,11 @@ export function TripCard({ trip, onPress }: TripCardProps) {
     transform: [{ scale: scale.value }],
   }));
 
-  const dayCount = getDayCount(trip);
+  const dayCount = getTotalDays(trip);
   const itemCount = getItemCount(trip);
   const emoji = trip.emoji || getDestinationEmoji(trip.destination);
+  const tripStatus = getTripStatus(trip);
+  const daysUntil = tripStatus === "future" ? getDaysUntil(trip.startDate) : null;
 
   return (
     <AnimatedPressable
@@ -95,9 +90,14 @@ export function TripCard({ trip, onPress }: TripCardProps) {
           <View style={styles.meta}>
             <Text style={styles.destination}>{trip.destination}</Text>
             <Text style={styles.dates}>
-              {formatDate(trip.startDate)} - {formatDate(trip.endDate)}
+              {formatTripDate(trip.startDate)} - {formatTripDate(trip.endDate)}
             </Text>
           </View>
+          {tripStatus === "current" && (
+            <View style={styles.currentBadge}>
+              <Text style={styles.currentBadgeText}>En cours</Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.title} numberOfLines={1}>
@@ -109,6 +109,19 @@ export function TripCard({ trip, onPress }: TripCardProps) {
             {trip.description}
           </Text>
         ) : null}
+
+        {daysUntil !== null && (
+          <View style={styles.countdownCard}>
+            <View style={styles.countdownContent}>
+              <View style={styles.countdownNumberWrap}>
+                <Text style={styles.countdownNumber}>{daysUntil}</Text>
+              </View>
+              <Text style={styles.countdownLabel}>
+                jour{daysUntil > 1 ? "s" : ""} avant le départ
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.footer}>
           <View style={styles.pill}>
@@ -164,6 +177,18 @@ const styles = StyleSheet.create({
   meta: {
     flex: 1,
   },
+  currentBadge: {
+    backgroundColor: "rgba(0, 138, 5, 0.12)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+    marginLeft: spacing.sm,
+  },
+  currentBadgeText: {
+    fontFamily: fonts.semiBold,
+    fontSize: fontSize.xs,
+    color: colors.green,
+  },
   destination: {
     fontFamily: fonts.semiBold,
     fontSize: fontSize.sm,
@@ -190,10 +215,45 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: spacing.md,
   },
+  countdownCard: {
+    backgroundColor: colors.roseLight,
+    borderWidth: 1,
+    borderColor: colors.roseMuted,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    minHeight: 64,
+    justifyContent: "center",
+    marginBottom: spacing.md,
+  },
+  countdownContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "stretch",
+    paddingVertical: 0,
+  },
+  countdownNumberWrap: {
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 2,
+  },
+  countdownNumber: {
+    fontFamily: fonts.bold,
+    fontSize: fontSize.xxxl,
+    color: colors.rose,
+    textAlign: "center",
+  },
+  countdownLabel: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.lg,
+    color: colors.darkGray,
+    textAlign: "center",
+    flexShrink: 1,
+  },
   footer: {
     flexDirection: "row",
     gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   pill: {
     backgroundColor: colors.roseMuted,

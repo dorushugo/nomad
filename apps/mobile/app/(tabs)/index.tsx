@@ -18,60 +18,16 @@ import { useAuthStore } from "../../src/stores/authStore";
 import { useTripStore, Trip } from "../../src/stores/tripStore";
 import { Button } from "../../src/components/Button";
 import { colors, fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import {
+  formatTripDate,
+  getCurrentDay,
+  getCurrentTrip,
+  getDaysUntil,
+  getNextTrip,
+  getTotalDays,
+} from "../../src/utils/tripDates";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-function getToday() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
-function getCurrentTrip(trips: Trip[]): Trip | null {
-  const today = getToday().getTime();
-  return (
-    trips.find((t) => {
-      const start = new Date(t.startDate).getTime();
-      const end = new Date(t.endDate).getTime();
-      return start <= today && today <= end;
-    }) || null
-  );
-}
-
-function getNextTrip(trips: Trip[]): Trip | null {
-  const today = getToday().getTime();
-  const future = trips
-    .filter((t) => new Date(t.startDate).getTime() > today)
-    .sort(
-      (a, b) =>
-        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    );
-  return future[0] || null;
-}
-
-function getDaysUntil(dateStr: string): number {
-  const today = getToday().getTime();
-  const target = new Date(dateStr).getTime();
-  return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
-}
-
-function getCurrentDay(trip: Trip): number {
-  const today = getToday().getTime();
-  const start = new Date(trip.startDate).getTime();
-  return Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function getTotalDays(trip: Trip): number {
-  const start = new Date(trip.startDate).getTime();
-  const end = new Date(trip.endDate).getTime();
-  return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-  });
-}
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
@@ -189,7 +145,7 @@ function CurrentTripCard({ trip }: { trip: Trip }) {
         <Text style={styles.cardTitle}>{trip.title}</Text>
         <Text style={styles.cardDestination}>{trip.destination}</Text>
         <Text style={styles.cardDates}>
-          {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+          {formatTripDate(trip.startDate, "long")} — {formatTripDate(trip.endDate, "long")}
         </Text>
 
         {/* Progress bar */}
@@ -234,7 +190,7 @@ function NextTripCard({ trip }: { trip: Trip }) {
         <Text style={styles.cardTitle}>{trip.title}</Text>
         <Text style={styles.cardDestination}>{trip.destination}</Text>
         <Text style={styles.cardDates}>
-          {formatDate(trip.startDate)} — {formatDate(trip.endDate)}
+          {formatTripDate(trip.startDate, "long")} — {formatTripDate(trip.endDate, "long")}
         </Text>
 
         <View style={styles.countdownContainer}>

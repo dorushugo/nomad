@@ -14,7 +14,7 @@ export default function Index() {
   if (!checked) return null;
 
   if (user) {
-    return <Redirect href="/(tabs)/" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   return <Redirect href="/login" />;

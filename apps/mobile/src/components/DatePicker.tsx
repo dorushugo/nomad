@@ -98,6 +98,8 @@ export function DatePicker({
                 display="spinner"
                 onChange={handleChange}
                 locale="fr-FR"
+                themeVariant="light"
+                textColor={colors.black}
                 style={styles.picker}
                 {...(minimumDate ? { minimumDate: toDateObj(minimumDate) } : {})}
               />

@@ -32,7 +32,7 @@ export default function LoginScreen() {
     }
     try {
       await login(email.trim().toLowerCase(), password);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Erreur", error.message || "Connexion échouée");
     }
@@ -41,7 +41,7 @@ export default function LoginScreen() {
   const handleGoogle = async () => {
     try {
       await loginWithGoogle();
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Erreur", error.message || "Connexion Google échouée");
     }

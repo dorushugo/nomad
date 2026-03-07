@@ -31,7 +31,7 @@ export default function RegisterScreen() {
     }
     try {
       await register(email.trim().toLowerCase(), name.trim(), password);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (error: any) {
       Alert.alert("Erreur", error.message || "Inscription échouée");
     }
