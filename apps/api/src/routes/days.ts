@@ -59,6 +59,32 @@ daysRouter.post("/:id/items", async (c) => {
   }
 });
 
+// Batch reorder items in a day
+daysRouter.put("/:id/items/reorder", async (c) => {
+  try {
+    const userId = c.get("userId");
+    const day = await prisma.day.findFirst({
+      where: { id: c.req.param("id"), trip: { users: { some: { userId } } } },
+    });
+    if (!day) return c.json({ error: "Jour non trouvé" }, 404);
+
+    const schema = z.object({
+      items: z.array(z.object({ id: z.string(), order: z.number().int() })),
+    });
+    const { items } = schema.parse(await c.req.json());
+
+    await prisma.$transaction(
+      items.map(({ id, order }) => prisma.item.update({ where: { id }, data: { order } }))
+    );
+    return c.json({ success: true });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: error.errors }, 400);
+    }
+    return c.json({ error: "Erreur serveur" }, 500);
+  }
+});
+
 // Update a day
 daysRouter.put("/:id", async (c) => {
   try {

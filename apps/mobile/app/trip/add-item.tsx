@@ -107,6 +107,7 @@ export default function AddItemScreen() {
   const [arrivalLocation, setArrivalLocation] = useState("");
   const [startTime, setStartTime] = useState(params.startTime ?? "");
   const [endTime, setEndTime] = useState(params.endTime ?? "");
+  const [showTime, setShowTime] = useState(!!(params.startTime || params.endTime));
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [transportMode, setTransportMode] = useState("avion");
@@ -471,25 +472,63 @@ export default function AddItemScreen() {
                       />
                     </View>
                   </View>
-                ) : (
+                ) : isTransport ? (
                   <View style={styles.timeRow}>
                     <View style={styles.timeHalf}>
                       <TimePicker
-                        label={isTransport ? "Départ" : "Début"}
+                        label="Départ"
                         value={startTime}
                         onChange={setStartTime}
-                        placeholder={isTransport ? "14:30" : "09:00"}
+                        placeholder="14:30"
                       />
                     </View>
                     <View style={styles.timeHalf}>
                       <TimePicker
-                        label={isTransport ? "Arrivée" : "Fin"}
+                        label="Arrivée"
                         value={endTime}
                         onChange={setEndTime}
-                        placeholder={isTransport ? "16:45" : "12:00"}
+                        placeholder="16:45"
                       />
                     </View>
                   </View>
+                ) : showTime ? (
+                  <>
+                    <View style={styles.timeRow}>
+                      <View style={styles.timeHalf}>
+                        <TimePicker
+                          label="Début"
+                          value={startTime}
+                          onChange={setStartTime}
+                          placeholder="09:00"
+                        />
+                      </View>
+                      <View style={styles.timeHalf}>
+                        <TimePicker
+                          label="Fin"
+                          value={endTime}
+                          onChange={setEndTime}
+                          placeholder="12:00"
+                        />
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        setShowTime(false);
+                        setStartTime("");
+                        setEndTime("");
+                      }}
+                      style={styles.removeTimeBtn}
+                    >
+                      <Text style={styles.removeTimeBtnText}>Supprimer l'horaire</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    onPress={() => setShowTime(true)}
+                    style={styles.addTimeBtn}
+                  >
+                    <Text style={styles.addTimeBtnText}>+ Ajouter un horaire</Text>
+                  </Pressable>
                 )}
                 {timeError && (
                   <Text style={styles.timeError}>{timeError}</Text>
@@ -733,6 +772,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     fontSize: fontSize.xs,
     color: colors.white,
+  },
+  // Optional time toggle
+  addTimeBtn: {
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.grayBorder,
+    borderStyle: "dashed",
+    paddingVertical: 18,
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  addTimeBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.md,
+    color: colors.gray,
+  },
+  removeTimeBtn: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  removeTimeBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.sm,
+    color: colors.red,
   },
   // Time
   timeRow: {

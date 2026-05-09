@@ -92,6 +92,7 @@ interface TripState {
   addItem: (dayId: string, data: Omit<Item, "id" | "dayId" | "order">) => Promise<Item>;
   updateItem: (itemId: string, data: Partial<Item>) => Promise<void>;
   deleteItem: (itemId: string) => Promise<void>;
+  reorderItems: (dayId: string, orderedItems: { id: string; order: number }[]) => Promise<void>;
   uploadDocument: (itemId: string, file: { uri: string; name: string; type: string; size: number }) => Promise<Document>;
   deleteDocument: (documentId: string) => Promise<void>;
 }
@@ -172,6 +173,30 @@ export const useTripStore = create<TripState>()(
             })),
           })),
         }));
+      },
+
+      reorderItems: async (dayId, orderedItems) => {
+        const orderMap = new Map(orderedItems.map(({ id, order }) => [id, order]));
+        set((state) => ({
+          trips: state.trips.map((trip) => ({
+            ...trip,
+            days: trip.days.map((day) => {
+              if (day.id !== dayId) return day;
+              return {
+                ...day,
+                items: day.items.map((item) =>
+                  orderMap.has(item.id) ? { ...item, order: orderMap.get(item.id)! } : item
+                ),
+              };
+            }),
+          })),
+        }));
+        try {
+          await api.put(`/days/${dayId}/items/reorder`, { items: orderedItems });
+        } catch {
+          const trip = get().trips.find((t) => t.days.some((d) => d.id === dayId));
+          if (trip) await get().fetchTrip(trip.id);
+        }
       },
 
       uploadDocument: async (itemId, file) => {

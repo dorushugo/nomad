@@ -26,6 +26,7 @@ import { useTripStore, Item } from "../../src/stores/tripStore";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
+import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { Button } from "../../src/components/Button";
 import { AccommodationCard } from "../../src/components/AccommodationCard";
 import { colors, fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
@@ -128,10 +129,11 @@ function DraggableTimelineItem({
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem } = useTripStore();
+  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems } = useTripStore();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"timeline" | "calendar">("timeline");
 
   // Drag selection (shared values for 60fps)
   const selStartHour = useSharedValue(0);
@@ -391,9 +393,9 @@ export default function TripDetailScreen() {
     .filter((i) => i.startTime && parseTime(i.startTime) != null)
     .sort((a, b) => parseTime(a.startTime!)! - parseTime(b.startTime!)!);
   scheduledItemsRef.current = scheduledItems;
-  const unscheduledItems = nonAccommodationItems.filter(
-    (i) => !i.startTime || parseTime(i.startTime) == null
-  );
+  const unscheduledItems = nonAccommodationItems
+    .filter((i) => !i.startTime || parseTime(i.startTime) == null)
+    .sort((a, b) => a.order - b.order);
 
   return (
     <>
@@ -470,6 +472,26 @@ export default function TripDetailScreen() {
           })}
         </ScrollView>
 
+        {/* View toggle */}
+        <View style={styles.viewToggle}>
+          <Pressable
+            onPress={() => setViewMode("timeline")}
+            style={[styles.toggleBtn, viewMode === "timeline" && styles.toggleBtnActive]}
+          >
+            <Text style={[styles.toggleBtnText, viewMode === "timeline" && styles.toggleBtnTextActive]}>
+              Timeline
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setViewMode("calendar")}
+            style={[styles.toggleBtn, viewMode === "calendar" && styles.toggleBtnActive]}
+          >
+            <Text style={[styles.toggleBtnText, viewMode === "calendar" && styles.toggleBtnTextActive]}>
+              Calendrier
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Accommodations */}
         {uniqueAccommodations.length > 0 && (
           <View style={styles.accommodationSection}>
@@ -485,7 +507,7 @@ export default function TripDetailScreen() {
           </View>
         )}
 
-        {/* Timeline */}
+        {/* Content */}
         <ScrollView
           ref={scrollViewRef}
           style={styles.timelineScroll}
@@ -500,7 +522,48 @@ export default function TripDetailScreen() {
             />
           }
         >
-          {/* Hour grid with long-press + drag gesture */}
+          {/* ── TIMELINE LIST VIEW ── */}
+          {viewMode === "timeline" && (
+            <View style={styles.timelineList}>
+              {scheduledItems.length === 0 && unscheduledItems.length === 0 && (
+                <Text style={styles.emptyText}>Aucun événement pour ce jour</Text>
+              )}
+              {scheduledItems.map((item) => (
+                <TimelineBlock
+                  key={item.id}
+                  item={item}
+                  onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+              {unscheduledItems.length > 0 && (
+                <View style={scheduledItems.length > 0 ? styles.unscheduledSection : undefined}>
+                  {scheduledItems.length > 0 && (
+                    <Text style={styles.unscheduledTitle}>Non planifié</Text>
+                  )}
+                  <DraggableItemList
+                    key={currentDay?.id}
+                    items={unscheduledItems}
+                    onReorder={(reordered) => {
+                      const orderedItems = reordered.map((item, index) => ({
+                        id: item.id,
+                        order: index,
+                      }));
+                      reorderItems(currentDay!.id, orderedItems);
+                    }}
+                    onPressItem={(item) =>
+                      router.push(`/trip/edit-item?itemId=${item.id}`)
+                    }
+                    onDeleteItem={(item) => deleteItem(item.id)}
+                    onDragStateChange={setScrollLocked}
+                  />
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── CALENDAR GRID VIEW ── */}
+          {viewMode === "calendar" && (
           <View
             style={styles.timelineGrid}
             onTouchStart={(e) => {
@@ -596,31 +659,6 @@ export default function TripDetailScreen() {
               style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }}
             />
           </View>
-
-          {/* Unscheduled items */}
-          {unscheduledItems.length > 0 && (
-            <View style={styles.unscheduledSection}>
-              <Text style={styles.unscheduledTitle}>Non planifié</Text>
-              {unscheduledItems.map((item, index) => (
-                <View key={item.id}>
-                  <TimelineBlock
-                    item={item}
-                    onPress={() =>
-                      router.push(`/trip/edit-item?itemId=${item.id}`)
-                    }
-                    onDelete={() => deleteItem(item.id)}
-                  />
-                  {index < unscheduledItems.length - 1 &&
-                    item.location &&
-                    unscheduledItems[index + 1].location && (
-                      <TravelIndicator
-                        originLocation={item.location}
-                        destinationLocation={unscheduledItems[index + 1].location!}
-                      />
-                    )}
-                </View>
-              ))}
-            </View>
           )}
         </ScrollView>
 
@@ -847,6 +885,47 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     justifyContent: "center",
     zIndex: 1,
+  },
+  // View toggle
+  viewToggle: {
+    flexDirection: "row",
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    backgroundColor: colors.grayLight,
+    borderRadius: radius.full,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.grayBorder,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    alignItems: "center",
+  },
+  toggleBtnActive: {
+    backgroundColor: colors.white,
+    ...shadow.sm,
+  },
+  toggleBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.sm,
+    color: colors.grayMuted,
+  },
+  toggleBtnTextActive: {
+    color: colors.black,
+  },
+  // Timeline list (non-calendar mode)
+  timelineList: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  emptyText: {
+    fontFamily: fonts.regular,
+    fontSize: fontSize.sm,
+    color: colors.grayMuted,
+    textAlign: "center",
+    marginTop: spacing.xxl,
   },
   // Unscheduled
   unscheduledSection: {
