@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   PanResponder,
+  useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
 import Animated, {
@@ -127,9 +128,13 @@ function DraggableTimelineItem({
   );
 }
 
+const MAX_VISIBLE_DAYS = 6;
+const DAY_GAP = spacing.sm;
+
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems } = useTripStore();
+  const { width: screenWidth } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -368,6 +373,12 @@ export default function TripDetailScreen() {
 
   const days = trip.days || [];
   const currentDay = days[selectedDayIndex];
+
+  const visibleDays = Math.min(days.length, MAX_VISIBLE_DAYS);
+  const pillContainerWidth = screenWidth - 2 * spacing.lg;
+  const pillWidth = visibleDays > 1
+    ? (pillContainerWidth - DAY_GAP * (visibleDays - 1)) / visibleDays
+    : pillContainerWidth;
   currentDayRef.current = currentDay;
   const items = currentDay?.items ?? [];
 
@@ -454,7 +465,7 @@ export default function TripDetailScreen() {
               <Pressable
                 key={day.id}
                 onPress={() => setSelectedDayIndex(index)}
-                style={[styles.dayPill, isActive && styles.dayPillActive]}
+                style={[styles.dayPill, { width: pillWidth }, isActive && styles.dayPillActive]}
               >
                 <Text
                   style={[styles.dayPillName, isActive && styles.dayPillNameActive]}
@@ -758,11 +769,10 @@ const styles = StyleSheet.create({
   },
   dayScrollContent: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    gap: DAY_GAP,
     alignItems: "center",
   },
   dayPill: {
-    width: 56,
     height: 72,
     borderRadius: radius.xl,
     backgroundColor: colors.white,
