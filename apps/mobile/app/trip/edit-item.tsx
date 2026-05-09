@@ -10,75 +10,23 @@ import {
   Platform,
   Keyboard,
   ScrollView,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import Animated, {
-  SlideInRight,
-  SlideInLeft,
-  SlideOutLeft,
-  SlideOutRight,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
 import { useTripStore } from "../../src/stores/tripStore";
 import { TimePicker } from "../../src/components/TimePicker";
 import { DatePicker } from "../../src/components/DatePicker";
 import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
-import { colors, fonts, fontSize, spacing, radius } from "../../src/theme";
+import { colors, fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
-import { transportModes, shouldCalculateDuration, getPlacesTypesForMode, getPlacesPlaceholderForMode } from "../../src/utils/transportModes";
+import {
+  transportModes,
+  shouldCalculateDuration,
+  getPlacesTypesForMode,
+  getPlacesPlaceholderForMode,
+} from "../../src/utils/transportModes";
 import { DocumentPicker } from "../../src/components/DocumentPicker";
 import { DocumentList } from "../../src/components/DocumentList";
-
-const TOTAL_STEPS = 3;
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-function TypeButton({
-  item,
-  isActive,
-  onPress,
-}: {
-  item: { key: string; emoji: string; label: string; bg: string; accent: string };
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 12, stiffness: 300 });
-      }}
-      style={[
-        styles.typeBtn,
-        { backgroundColor: isActive ? item.bg : colors.white },
-        isActive && { borderColor: item.accent },
-        animStyle,
-      ]}
-    >
-      <Text style={styles.typeEmoji}>{item.emoji}</Text>
-      <Text
-        style={[
-          styles.typeLabel,
-          { color: isActive ? item.accent : colors.grayMuted },
-        ]}
-      >
-        {item.label}
-      </Text>
-    </AnimatedPressable>
-  );
-}
 
 const itemTypes = [
   { key: "activity" as const, emoji: "📍", label: "Activité", bg: colors.roseLight, accent: colors.rose },
@@ -107,8 +55,6 @@ export default function EditItemScreen() {
     if (foundItem) break;
   }
 
-  const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [type, setType] = useState<"activity" | "accommodation" | "transport" | "note">(foundItem?.type ?? "activity");
   const [title, setTitle] = useState(foundItem?.title ?? "");
   const [description, setDescription] = useState(foundItem?.description ?? "");
@@ -123,7 +69,11 @@ export default function EditItemScreen() {
   const [endDate, setEndDate] = useState(foundItem?.endDate ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [durationSuggestion, setDurationSuggestion] = useState<{ duration: string; durationMinutes: number; mode: "driving" | "walking" } | null>(null);
+  const [durationSuggestion, setDurationSuggestion] = useState<{
+    duration: string;
+    durationMinutes: number;
+    mode: "driving" | "walking";
+  } | null>(null);
   const [durationLoading, setDurationLoading] = useState(false);
 
   const isTransport = type === "transport";
@@ -141,31 +91,22 @@ export default function EditItemScreen() {
       setDurationSuggestion(result);
       setDurationLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isTransport, transportMode, location, arrivalLocation]);
 
-  const hasNavigated = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldOffsets = useRef<Record<string, number>>({});
   const handleInputFocus = (y: number) => {
     setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
   };
   const registerField = (name: string) => ({
-    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onLayout: (e: any) => {
+      fieldOffsets.current[name] = e.nativeEvent.layout.y;
+    },
     onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
   });
-
-  const next = () => {
-    hasNavigated.current = true;
-    setDirection("forward");
-    setStep((s) => s + 1);
-  };
-
-  const back = () => {
-    hasNavigated.current = true;
-    setDirection("back");
-    setStep((s) => s - 1);
-  };
 
   const handleSave = async () => {
     const finalTitle = isTransport
@@ -180,6 +121,7 @@ export default function EditItemScreen() {
       Alert.alert("Erreur", "Ajoute au moins un lieu");
       return;
     }
+    if (timeError) return;
     if (!itemId) return;
 
     setIsLoading(true);
@@ -188,10 +130,10 @@ export default function EditItemScreen() {
         type,
         title: finalTitle,
         description: description.trim() || undefined,
-        startTime: isAccommodation ? undefined : (startTime.trim() || undefined),
-        endTime: isAccommodation ? undefined : (endTime.trim() || undefined),
-        startDate: isAccommodation ? (startDate || undefined) : undefined,
-        endDate: isAccommodation ? (endDate || undefined) : undefined,
+        startTime: isAccommodation ? undefined : startTime.trim() || undefined,
+        endTime: isAccommodation ? undefined : endTime.trim() || undefined,
+        startDate: isAccommodation ? startDate || undefined : undefined,
+        endDate: isAccommodation ? endDate || undefined : undefined,
         location: location.trim() || undefined,
         arrivalLocation: arrivalLocation.trim() || undefined,
         transportMode: isTransport ? transportMode : undefined,
@@ -207,26 +149,22 @@ export default function EditItemScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      "Supprimer cet élément ?",
-      "Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            if (!itemId) return;
-            try {
-              await deleteItem(itemId);
-              router.back();
-            } catch (error: any) {
-              Alert.alert("Erreur", error.message || "Impossible de supprimer");
-            }
-          },
+    Alert.alert("Supprimer cet élément ?", "Cette action est irréversible.", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Supprimer",
+        style: "destructive",
+        onPress: async () => {
+          if (!itemId) return;
+          try {
+            await deleteItem(itemId);
+            router.back();
+          } catch (error: any) {
+            Alert.alert("Erreur", error.message || "Impossible de supprimer");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   if (!foundItem) {
@@ -240,378 +178,301 @@ export default function EditItemScreen() {
     );
   }
 
-  const timeError = isAccommodation
-    ? (startDate && endDate && startDate >= endDate
-      ? "La date de check-out doit être après le check-in"
-      : null)
-    : (startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
-      ? "L'heure de fin doit être après l'heure de début"
-      : null);
-
-  const enterAnim = hasNavigated.current
-    ? (direction === "forward" ? SlideInRight : SlideInLeft)
-    : undefined;
-  const exitAnim = direction === "forward" ? SlideOutLeft : SlideOutRight;
   const typeConfig = getTypeConfig(type);
 
+  const timeError = isAccommodation
+    ? startDate && endDate && startDate >= endDate
+      ? "La date de check-out doit être après le check-in"
+      : null
+    : startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+    ? "L'heure de fin doit être après l'heure de début"
+    : null;
+
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        enabled={step === 1}
-      >
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable
-            onPress={step === 0 ? () => router.back() : back}
-            style={styles.headerBtn}
-            hitSlop={12}
-          >
-            <Text style={styles.headerBtnText}>
-              {step === 0 ? "✕" : "←"}
-            </Text>
+          <Pressable onPress={() => router.back()} style={styles.closeBtn} hitSlop={12}>
+            <Text style={styles.closeBtnText}>✕</Text>
           </Pressable>
-
-          <View style={styles.dots}>
-            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-              <View
-                key={i}
-                style={[styles.dot, i <= step && styles.dotActive]}
-              />
-            ))}
+          <View style={styles.headerTitle}>
+            <Text style={styles.headerEmoji}>{typeConfig.emoji}</Text>
+            <Text style={styles.headerText}>Modifier</Text>
           </View>
-
           <Pressable onPress={handleDelete} hitSlop={12}>
             <Text style={styles.deleteText}>Supprimer</Text>
           </Pressable>
         </View>
 
-        {/* Steps */}
-        <View style={styles.body}>
-          {/* Step 0: Type */}
-          {step === 0 && (
-            <Animated.View
-              key="step-0"
-              entering={enterAnim?.duration(300)}
-              exiting={exitAnim.duration(200)}
-              style={styles.step}
-            >
-              <Text style={styles.stepEmoji}>{typeConfig.emoji}</Text>
-              <Text style={styles.question}>Type</Text>
-              <Text style={styles.hint}>
-                Tu peux changer le type si besoin
-              </Text>
-
-              <View style={styles.fieldContainer}>
-                <View style={styles.typeGrid}>
-                  {itemTypes.map((item) => (
-                    <TypeButton
-                      key={item.key}
-                      item={item}
-                      isActive={type === item.key}
-                      onPress={() => setType(item.key)}
-                    />
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.footer}>
-                <Pressable onPress={next} style={styles.nextBtn}>
-                  <Text style={styles.nextBtnText}>Suivant</Text>
-                </Pressable>
-              </View>
-            </Animated.View>
-          )}
-
-          {/* Step 1: Title + Description + Location */}
-          {step === 1 && (
-            <Animated.View
-              key="step-1"
-              entering={enterAnim?.duration(300)}
-              exiting={exitAnim.duration(200)}
-              style={styles.step}
-            >
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.fieldContainer}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 200 }}
-              >
-                <Text style={styles.stepEmoji}>{typeConfig.emoji}</Text>
-                <Text style={styles.question}>
-                  {isTransport ? "Ton trajet" : "Détails"}
-                </Text>
-                <Text style={styles.hint}>
-                  {isTransport
-                    ? "D'où pars-tu et où vas-tu ?"
-                    : "Modifie les informations de ton " + typeConfig.label.toLowerCase()}
-                </Text>
-                {isTransport && (
-                  <>
-                    <Text style={styles.sectionLabel}>Mode de transport</Text>
-                    <View style={styles.transportModeGrid}>
-                      {transportModes.map((mode) => (
-                        <Pressable
-                          key={mode.key}
-                          onPress={() => setTransportMode(mode.key)}
-                          style={[
-                            styles.transportModeBtn,
-                            transportMode === mode.key && styles.transportModeBtnActive,
-                          ]}
-                        >
-                          <Text style={styles.transportModeEmoji}>{mode.emoji}</Text>
-                          <Text
-                            style={[
-                              styles.transportModeLabel,
-                              transportMode === mode.key && styles.transportModeLabelActive,
-                            ]}
-                          >
-                            {mode.label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                )}
-                {!isTransport && (
-                  <>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Titre"
-                      placeholderTextColor={colors.grayMuted}
-                      value={title}
-                      onChangeText={setTitle}
-                      selectionColor={colors.rose}
-                      {...registerField("title")}
-                      autoFocus
-                    />
-                    <TextInput
-                      style={[styles.input, styles.inputSecondary]}
-                      placeholder="Description (optionnel)"
-                      placeholderTextColor={colors.grayMuted}
-                      value={description}
-                      onChangeText={setDescription}
-                      selectionColor={colors.rose}
-                      {...registerField("description")}
-                      multiline
-                      numberOfLines={2}
-                    />
-                  </>
-                )}
-                <PlacesAutocomplete
-                  label={isTransport ? "Départ" : "Lieu"}
-                  value={location}
-                  onSelect={setLocation}
-                  onInputFocus={handleInputFocus}
-                  placeholder={
-                    isTransport
-                      ? getPlacesPlaceholderForMode(transportMode)
-                      : type === "accommodation"
-                        ? "Nom de l'hôtel, adresse..."
-                        : "Adresse, lieu..."
-                  }
-                  types={isTransport ? getPlacesTypesForMode(transportMode) : "establishment"}
-                />
-                {isTransport && (
-                  <PlacesAutocomplete
-                    label="Arrivée"
-                    value={arrivalLocation}
-                    onSelect={setArrivalLocation}
-                    onInputFocus={handleInputFocus}
-                    placeholder={getPlacesPlaceholderForMode(transportMode)}
-                    types={getPlacesTypesForMode(transportMode)}
-                  />
-                )}
-              </ScrollView>
-
-              <View style={styles.footer}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Type */}
+          <Section label="Type">
+            <View style={styles.typeRow}>
+              {itemTypes.map((item) => (
                 <Pressable
-                  onPress={next}
-                  disabled={isTransport ? (!location.trim() && !arrivalLocation.trim()) : !title.trim()}
+                  key={item.key}
+                  onPress={() => setType(item.key)}
                   style={[
-                    styles.nextBtn,
-                    (isTransport ? (!location.trim() && !arrivalLocation.trim()) : !title.trim()) && styles.nextBtnDisabled,
+                    styles.typeChip,
+                    type === item.key && { backgroundColor: item.bg, borderColor: item.accent },
                   ]}
                 >
-                  <Text style={styles.nextBtnText}>Suivant</Text>
+                  <Text style={styles.typeChipEmoji}>{item.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.typeChipLabel,
+                      { color: type === item.key ? item.accent : colors.grayMuted },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                 </Pressable>
+              ))}
+            </View>
+          </Section>
+
+          {/* Transport mode */}
+          {isTransport && (
+            <Section label="Mode de transport">
+              <View style={styles.transportGrid}>
+                {transportModes.map((mode) => (
+                  <Pressable
+                    key={mode.key}
+                    onPress={() => setTransportMode(mode.key)}
+                    style={[
+                      styles.transportChip,
+                      transportMode === mode.key && styles.transportChipActive,
+                    ]}
+                  >
+                    <Text style={styles.transportChipEmoji}>{mode.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.transportChipLabel,
+                        transportMode === mode.key && styles.transportChipLabelActive,
+                      ]}
+                    >
+                      {mode.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-            </Animated.View>
+            </Section>
           )}
 
-          {/* Step 2: Time + Price + Notes */}
-          {step === 2 && (
-            <Animated.View
-              key="step-2"
-              entering={enterAnim?.duration(300)}
-              exiting={exitAnim.duration(200)}
-              style={styles.step}
-            >
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.fieldContainer}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 200 }}
-              >
-                <Text style={styles.stepEmoji}>{isAccommodation ? "\uD83D\uDCC5" : "\u23F0"}</Text>
-                <Text style={styles.question}>
-                  {isAccommodation
-                    ? "Dates du séjour"
-                    : isTransport
-                      ? "Horaires du trajet"
-                      : "Horaires et prix"}
-                </Text>
-                <Text style={styles.hint}>
-                  {isAccommodation
-                    ? "Dates de check-in et check-out"
-                    : isTransport
-                      ? "Heure de départ et d'arrivée"
-                      : "Tout est optionnel"}
-                </Text>
-                {isTransport && durationLoading && (
-                  <View style={styles.durationBanner}>
-                    <Text style={styles.durationText}>Calcul du trajet...</Text>
-                  </View>
-                )}
-                {isTransport && durationSuggestion && !durationLoading && (
-                  <View style={styles.durationBanner}>
-                    <Text style={styles.durationText}>
-                      {durationSuggestion.mode === "walking" ? "\uD83D\uDEB6" : "\uD83D\uDE97"}{" "}
-                      Durée estimée : {durationSuggestion.duration}
-                    </Text>
-                    {startTime.trim() && !endTime.trim() && (
-                      <Pressable
-                        onPress={() => {
-                          const [h, m] = startTime.split(":").map(Number);
-                          const totalMin = h * 60 + m + durationSuggestion.durationMinutes;
-                          const endH = Math.floor(totalMin / 60) % 24;
-                          const endM = totalMin % 60;
-                          setEndTime(`${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`);
-                        }}
-                        style={styles.durationApplyBtn}
-                      >
-                        <Text style={styles.durationApplyText}>Appliquer</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
-                {isAccommodation ? (
-                  <View style={styles.timeRow}>
-                    <View style={styles.timeHalf}>
-                      <DatePicker
-                        label="Check-in"
-                        value={startDate}
-                        onChange={setStartDate}
-                        placeholder="Arrivée"
-                      />
-                    </View>
-                    <View style={styles.timeHalf}>
-                      <DatePicker
-                        label="Check-out"
-                        value={endDate}
-                        onChange={setEndDate}
-                        placeholder="Départ"
-                        minimumDate={startDate || undefined}
-                      />
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.timeRow}>
-                    <View style={styles.timeHalf}>
-                      <TimePicker
-                        label={isTransport ? "Départ" : "Début"}
-                        value={startTime}
-                        onChange={setStartTime}
-                        placeholder={isTransport ? "14:30" : "09:00"}
-                      />
-                    </View>
-                    <View style={styles.timeHalf}>
-                      <TimePicker
-                        label={isTransport ? "Arrivée" : "Fin"}
-                        value={endTime}
-                        onChange={setEndTime}
-                        placeholder={isTransport ? "16:45" : "12:00"}
-                      />
-                    </View>
-                  </View>
-                )}
-                {timeError && (
-                  <Text style={styles.timeError}>{timeError}</Text>
-                )}
+          {/* Informations */}
+          <Section label={isTransport ? "Trajet" : "Informations"}>
+            {!isTransport && (
+              <>
                 <TextInput
                   style={styles.input}
-                  placeholder="Prix (optionnel)"
+                  placeholder="Titre"
                   placeholderTextColor={colors.grayMuted}
-                  value={price}
-                  onChangeText={setPrice}
+                  value={title}
+                  onChangeText={setTitle}
                   selectionColor={colors.rose}
-                  {...registerField("price")}
-                  keyboardType="decimal-pad"
+                  {...registerField("title")}
                 />
                 <TextInput
-                  style={[styles.input, styles.inputSecondary]}
-                  placeholder={
-                    isTransport
-                      ? "N° de vol, réservation... (optionnel)"
-                      : "Notes (optionnel)"
-                  }
+                  style={[styles.input, styles.inputMultiline]}
+                  placeholder="Description (optionnel)"
                   placeholderTextColor={colors.grayMuted}
-                  value={notes}
-                  onChangeText={setNotes}
+                  value={description}
+                  onChangeText={setDescription}
                   selectionColor={colors.rose}
-                  {...registerField("notes")}
+                  {...registerField("description")}
                   multiline
                   numberOfLines={2}
                 />
-                <DocumentList
-                  documents={foundItem?.documents ?? []}
-                  onDelete={async (docId) => {
-                    try {
-                      await deleteDocument(docId);
-                    } catch (e: any) {
-                      Alert.alert("Erreur", e.message || "Impossible de supprimer");
-                    }
-                  }}
-                />
-                <DocumentPicker
-                  isUploading={isUploading}
-                  onPick={async (file) => {
-                    if (!itemId) return;
-                    setIsUploading(true);
-                    try {
-                      await uploadDocument(itemId, file);
-                    } catch (e: any) {
-                      Alert.alert("Erreur", e.message || "Impossible d'envoyer le document");
-                    } finally {
-                      setIsUploading(false);
-                    }
-                  }}
-                />
-              </ScrollView>
+              </>
+            )}
+            <PlacesAutocomplete
+              label={isTransport ? "Départ" : "Lieu"}
+              value={location}
+              onSelect={setLocation}
+              onInputFocus={handleInputFocus}
+              placeholder={
+                isTransport
+                  ? getPlacesPlaceholderForMode(transportMode)
+                  : type === "accommodation"
+                  ? "Nom de l'hôtel, adresse..."
+                  : "Adresse, lieu..."
+              }
+              types={isTransport ? getPlacesTypesForMode(transportMode) : "establishment"}
+            />
+            {isTransport && (
+              <PlacesAutocomplete
+                label="Arrivée"
+                value={arrivalLocation}
+                onSelect={setArrivalLocation}
+                onInputFocus={handleInputFocus}
+                placeholder={getPlacesPlaceholderForMode(transportMode)}
+                types={getPlacesTypesForMode(transportMode)}
+              />
+            )}
+          </Section>
 
-              <View style={styles.footer}>
-                <Pressable
-                  onPress={handleSave}
-                  disabled={isLoading || !!timeError}
-                  style={[
-                    styles.nextBtn,
-                    (isLoading || !!timeError) && styles.nextBtnDisabled,
-                  ]}
-                >
-                  <Text style={styles.nextBtnText}>
-                    {isLoading ? "Enregistrement..." : "Enregistrer"}
-                  </Text>
-                </Pressable>
+          {/* Horaires / Dates */}
+          <Section label={isAccommodation ? "Dates du séjour" : isTransport ? "Horaires du trajet" : "Horaires"}>
+            {isTransport && durationLoading && (
+              <View style={styles.durationBanner}>
+                <Text style={styles.durationText}>Calcul du trajet...</Text>
               </View>
-            </Animated.View>
-          )}
+            )}
+            {isTransport && durationSuggestion && !durationLoading && (
+              <View style={styles.durationBanner}>
+                <Text style={styles.durationText}>
+                  {durationSuggestion.mode === "walking" ? "🚶" : "🚗"} Durée estimée :{" "}
+                  {durationSuggestion.duration}
+                </Text>
+                {startTime.trim() && !endTime.trim() && (
+                  <Pressable
+                    onPress={() => {
+                      const [h, m] = startTime.split(":").map(Number);
+                      const totalMin = h * 60 + m + durationSuggestion.durationMinutes;
+                      const endH = Math.floor(totalMin / 60) % 24;
+                      const endM = totalMin % 60;
+                      setEndTime(
+                        `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`
+                      );
+                    }}
+                    style={styles.durationApplyBtn}
+                  >
+                    <Text style={styles.durationApplyText}>Appliquer</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {isAccommodation ? (
+              <View style={styles.timeRow}>
+                <View style={styles.timeHalf}>
+                  <DatePicker
+                    label="Check-in"
+                    value={startDate}
+                    onChange={setStartDate}
+                    placeholder="Arrivée"
+                  />
+                </View>
+                <View style={styles.timeHalf}>
+                  <DatePicker
+                    label="Check-out"
+                    value={endDate}
+                    onChange={setEndDate}
+                    placeholder="Départ"
+                    minimumDate={startDate || undefined}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.timeRow}>
+                <View style={styles.timeHalf}>
+                  <TimePicker
+                    label={isTransport ? "Départ" : "Début"}
+                    value={startTime}
+                    onChange={setStartTime}
+                    placeholder={isTransport ? "14:30" : "09:00"}
+                  />
+                </View>
+                <View style={styles.timeHalf}>
+                  <TimePicker
+                    label={isTransport ? "Arrivée" : "Fin"}
+                    value={endTime}
+                    onChange={setEndTime}
+                    placeholder={isTransport ? "16:45" : "12:00"}
+                  />
+                </View>
+              </View>
+            )}
+            {timeError && <Text style={styles.timeError}>{timeError}</Text>}
+          </Section>
+
+          {/* Prix et notes */}
+          <Section label="Extras">
+            <TextInput
+              style={styles.input}
+              placeholder="Prix (optionnel)"
+              placeholderTextColor={colors.grayMuted}
+              value={price}
+              onChangeText={setPrice}
+              selectionColor={colors.rose}
+              {...registerField("price")}
+              keyboardType="decimal-pad"
+            />
+            <TextInput
+              style={[styles.input, styles.inputMultiline]}
+              placeholder={isTransport ? "N° de vol, réservation... (optionnel)" : "Notes (optionnel)"}
+              placeholderTextColor={colors.grayMuted}
+              value={notes}
+              onChangeText={setNotes}
+              selectionColor={colors.rose}
+              {...registerField("notes")}
+              multiline
+              numberOfLines={2}
+            />
+          </Section>
+
+          {/* Documents */}
+          <Section label="Documents">
+            <DocumentList
+              documents={foundItem?.documents ?? []}
+              onDelete={async (docId) => {
+                try {
+                  await deleteDocument(docId);
+                } catch (e: any) {
+                  Alert.alert("Erreur", e.message || "Impossible de supprimer");
+                }
+              }}
+            />
+            <DocumentPicker
+              isUploading={isUploading}
+              onPick={async (file) => {
+                if (!itemId) return;
+                setIsUploading(true);
+                try {
+                  await uploadDocument(itemId, file);
+                } catch (e: any) {
+                  Alert.alert("Erreur", e.message || "Impossible d'envoyer le document");
+                } finally {
+                  setIsUploading(false);
+                }
+              }}
+            />
+          </Section>
+        </ScrollView>
+
+        {/* Save button */}
+        <View style={styles.footer}>
+          <Pressable
+            onPress={handleSave}
+            disabled={isLoading || !!timeError}
+            style={[styles.saveBtn, (isLoading || !!timeError) && styles.saveBtnDisabled]}
+          >
+            <Text style={styles.saveBtnText}>
+              {isLoading ? "Enregistrement..." : "Enregistrer"}
+            </Text>
+          </Pressable>
         </View>
+
         <LoadingOverlay visible={isLoading} />
-      </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <View style={styles.sectionBody}>{children}</View>
+    </View>
   );
 }
 
@@ -631,6 +492,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.gray,
   },
+
   // Header
   header: {
     flexDirection: "row",
@@ -639,17 +501,33 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
     backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.grayBorder,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    backgroundColor: colors.grayLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerBtnText: {
+  closeBtnText: {
+    fontSize: 16,
+    color: colors.black,
+  },
+  headerTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  headerEmoji: {
     fontSize: 20,
+  },
+  headerText: {
+    fontFamily: fonts.semiBold,
+    fontSize: fontSize.md,
     color: colors.black,
   },
   deleteText: {
@@ -657,141 +535,121 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.red,
   },
-  // Dots
-  dots: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.grayBorder,
-  },
-  dotActive: {
-    backgroundColor: colors.rose,
-    width: 24,
-  },
-  // Body
-  body: {
+
+  // Scroll
+  scroll: {
     flex: 1,
   },
-  step: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: spacing.lg,
-  },
-  stepEmoji: {
-    fontSize: 56,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  question: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxxl,
-    color: colors.black,
-    letterSpacing: -1,
-    lineHeight: 44,
-    marginBottom: spacing.sm,
-  },
-  hint: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.gray,
-    marginBottom: spacing.xl,
-  },
-  fieldContainer: {
-    flex: 1,
-  },
-  // Type grid
-  typeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    paddingTop: spacing.lg,
+    paddingBottom: 32,
     gap: spacing.md,
   },
-  typeBtn: {
-    width: "47%",
-    alignItems: "center",
-    paddingVertical: spacing.xl,
-    borderRadius: radius.xl,
-    borderWidth: 2,
-    borderColor: colors.grayBorder,
+
+  // Section
+  section: {
+    gap: spacing.sm,
   },
-  typeEmoji: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
-  },
-  typeLabel: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    letterSpacing: 0.3,
-  },
-  // Transport mode
   sectionLabel: {
     fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: fontSize.xs,
+    color: colors.grayMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    paddingHorizontal: spacing.xs,
   },
-  transportModeGrid: {
+  sectionBody: {
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    gap: spacing.md,
+    ...shadow.sm,
+  },
+
+  // Type selector
+  typeRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+  },
+  typeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.grayBorder,
+    backgroundColor: colors.grayLight,
+  },
+  typeChipEmoji: {
+    fontSize: 16,
+  },
+  typeChipLabel: {
+    fontFamily: fonts.medium,
+    fontSize: fontSize.sm,
+  },
+
+  // Transport mode
+  transportGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    marginBottom: spacing.lg,
   },
-  transportModeBtn: {
+  transportChip: {
     width: "22%",
     alignItems: "center",
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1.5,
     borderColor: colors.grayBorder,
-    backgroundColor: colors.white,
+    backgroundColor: colors.grayLight,
   },
-  transportModeBtnActive: {
+  transportChipActive: {
     borderColor: colors.orange,
     backgroundColor: "rgba(224, 121, 18, 0.08)",
   },
-  transportModeEmoji: {
+  transportChipEmoji: {
     fontSize: 22,
     marginBottom: 2,
   },
-  transportModeLabel: {
+  transportChipLabel: {
     fontFamily: fonts.medium,
     fontSize: fontSize.xxs,
     color: colors.grayMuted,
   },
-  transportModeLabelActive: {
+  transportChipLabelActive: {
     color: colors.orange,
   },
+
   // Inputs
   input: {
     fontFamily: fonts.regular,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
     color: colors.black,
-    backgroundColor: colors.white,
+    backgroundColor: colors.grayLight,
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 18,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: colors.grayBorder,
-    marginBottom: spacing.md,
   },
-  inputSecondary: {
-    fontSize: fontSize.md,
-    paddingVertical: 14,
-    minHeight: 60,
+  inputMultiline: {
+    minHeight: 56,
     textAlignVertical: "top",
   },
-  // Duration suggestion
+
+  // Duration banner
   durationBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "rgba(224, 121, 18, 0.08)",
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 14,
-    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
   },
   durationText: {
     fontFamily: fonts.medium,
@@ -803,7 +661,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.orange,
     borderRadius: radius.full,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     marginLeft: spacing.sm,
   },
   durationApplyText: {
@@ -811,36 +669,40 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.white,
   },
-  // Time
+
+  // Time row
   timeRow: {
     flexDirection: "row",
     gap: spacing.md,
-    marginBottom: spacing.sm,
+  },
+  timeHalf: {
+    flex: 1,
   },
   timeError: {
     fontFamily: fonts.medium,
     fontSize: fontSize.xs,
     color: colors.red,
-    marginBottom: spacing.md,
   },
-  timeHalf: {
-    flex: 1,
-  },
+
   // Footer
   footer: {
-    paddingBottom: 40,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: 40,
+    borderTopWidth: 1,
+    borderTopColor: colors.grayBorder,
   },
-  nextBtn: {
+  saveBtn: {
     backgroundColor: colors.rose,
     borderRadius: radius.full,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: "center",
   },
-  nextBtnDisabled: {
+  saveBtnDisabled: {
     opacity: 0.3,
   },
-  nextBtnText: {
+  saveBtnText: {
     fontFamily: fonts.semiBold,
     fontSize: fontSize.md,
     color: colors.white,

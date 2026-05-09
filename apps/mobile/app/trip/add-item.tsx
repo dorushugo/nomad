@@ -10,7 +10,6 @@ import {
   Platform,
   Keyboard,
   ScrollView,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import Animated, {
@@ -211,12 +210,11 @@ export default function AddItemScreen() {
   const typeConfig = getTypeConfig(type);
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        enabled={step === 1}
-      >
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      enabled={step === 1}
+    >
         {/* Header */}
         <View style={styles.header}>
           <Pressable
@@ -291,6 +289,7 @@ export default function AddItemScreen() {
                 style={styles.fieldContainer}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                onScrollBeginDrag={Keyboard.dismiss}
                 contentContainerStyle={{ paddingBottom: 200 }}
               >
                 <Text style={styles.stepEmoji}>{typeConfig.emoji}</Text>
@@ -408,6 +407,7 @@ export default function AddItemScreen() {
                 style={styles.fieldContainer}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                onScrollBeginDrag={Keyboard.dismiss}
                 contentContainerStyle={{ paddingBottom: 200 }}
               >
                 <Text style={styles.stepEmoji}>{isAccommodation ? "\uD83D\uDCC5" : "\u23F0"}</Text>
@@ -581,8 +581,7 @@ export default function AddItemScreen() {
           )}
         </View>
         <LoadingOverlay visible={isLoading} />
-      </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
