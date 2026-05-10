@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "db:migrate": "bunx prisma migrate dev",
     "db:push": "bunx prisma db push",
     "db:generate": "bunx prisma generate",
@@ -13,6 +15,7 @@
   "dependencies": {
     "@better-auth/expo": "^1.5.4",
     "@better-auth/prisma-adapter": "^1.5.3",
+    "@nomad/shared": "*",
     "@prisma/client": "^6.4.0",
     "@supabase/supabase-js": "^2.98.0",
     "better-auth": "^1.5.3",
@@ -21,6 +24,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "prisma": "^6.4.0"
+    "prisma": "^6.4.0",
+    "typescript": "~5.9.2"
   }
 }

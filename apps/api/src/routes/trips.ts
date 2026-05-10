@@ -39,7 +39,10 @@ tripsRouter.get("/:id", async (c) => {
     const trip = await prisma.trip.findFirst({
       where: { id: c.req.param("id"), users: { some: { userId } } },
       include: {
-        days: { include: { items: { include: { documents: true }, orderBy: { order: "asc" } } }, orderBy: { date: "asc" } },
+        days: {
+          include: { items: { include: { documents: true }, orderBy: { order: "asc" } } },
+          orderBy: { date: "asc" },
+        },
         users: { include: { user: { select: { id: true, name: true, email: true } } } },
         items: { where: { dayId: null }, include: { documents: true }, orderBy: { order: "asc" } },
       },
@@ -206,7 +209,10 @@ tripsRouter.get("/:id/days", async (c) => {
     // Sign document URLs in each day's items
     const { signItemDocuments } = await import("../utils/supabase");
     const signedDays = await Promise.all(
-      days.map(async (day) => ({ ...day, items: await signItemDocuments(day.items) }))
+      days.map(async (day: (typeof days)[number]) => ({
+        ...day,
+        items: await signItemDocuments(day.items),
+      }))
     );
     return c.json(signedDays);
   } catch {

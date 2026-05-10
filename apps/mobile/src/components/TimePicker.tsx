@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import RNDateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import type { ComponentType } from "react";
+
+// Lib types are platform-discriminated and can't represent the cross-platform
+// usage here without rejecting valid runtime props (display=clock/compact,
+// locale on iOS, is24Hour on Android). Widen at the import boundary.
+// biome-ignore lint/suspicious/noExplicitAny: third-party lib types are too narrow
+const DateTimePicker = RNDateTimePicker as ComponentType<any>;
 import { colors, fonts, fontSize, radius, spacing } from "../theme";
 
 interface TimePickerProps {
@@ -68,9 +73,7 @@ export function TimePicker({
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
       <Pressable style={styles.field} onPress={() => setShow(true)}>
-        <Text style={[styles.fieldText, !value && styles.placeholder]}>
-          {value || placeholder}
-        </Text>
+        <Text style={[styles.fieldText, !value && styles.placeholder]}>{value || placeholder}</Text>
       </Pressable>
       {show && (
         <DateTimePicker

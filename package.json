@@ -1,4 +1,16 @@
 {
   "name": "nomad",
-  "private": true
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "lefthook": "^1.10.10"
+  }
 }

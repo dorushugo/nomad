@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  type TextInputProps,
   StyleSheet,
   ScrollView,
   Pressable,
@@ -135,7 +136,12 @@ function DraggableTimelineItem({
   });
 
   return (
-    <Animated.View style={[{ position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, zIndex: 2 }, animStyle]}>
+    <Animated.View
+      style={[
+        { position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, zIndex: 2 },
+        animStyle,
+      ]}
+    >
       <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} fill />
     </Animated.View>
   );
@@ -147,8 +153,15 @@ const DAY_GAP = spacing.sm;
 type DistributionAssignment = { itemId: string; dayId: string };
 
 function distributeIdeas(ideas: Item[], days: Day[]): DistributionAssignment[] {
-  const typePriority: Record<string, number> = { accommodation: 0, transport: 1, activity: 2, note: 3 };
-  const sorted = [...ideas].sort((a, b) => (typePriority[a.type] ?? 2) - (typePriority[b.type] ?? 2));
+  const typePriority: Record<string, number> = {
+    accommodation: 0,
+    transport: 1,
+    activity: 2,
+    note: 3,
+  };
+  const sorted = [...ideas].sort(
+    (a, b) => (typePriority[a.type] ?? 2) - (typePriority[b.type] ?? 2)
+  );
   const dayLoad = days.map((day) => ({
     day,
     load: (day.items ?? []).filter((i) => i.type !== "accommodation").length,
@@ -159,7 +172,7 @@ function distributeIdeas(ideas: Item[], days: Day[]): DistributionAssignment[] {
       assignments.push({ itemId: idea.id, dayId: days[0].id });
       continue;
     }
-    const minDay = dayLoad.reduce((min, curr) => curr.load < min.load ? curr : min);
+    const minDay = dayLoad.reduce((min, curr) => (curr.load < min.load ? curr : min));
     assignments.push({ itemId: idea.id, dayId: minDay.day.id });
     minDay.load++;
   }
@@ -168,7 +181,8 @@ function distributeIdeas(ideas: Item[], days: Day[]): DistributionAssignment[] {
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems, assignIdeaToDay } = useTripStore();
+  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems, assignIdeaToDay } =
+    useTripStore();
   const { width: screenWidth } = useWindowDimensions();
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -190,7 +204,9 @@ export default function TripDetailScreen() {
   const dragMode = useRef<"create" | "move">("create");
   const draggedItemId = useSharedValue("");
   const dragDeltaY = useSharedValue(0);
-  const dragItemOriginal = useRef<{ itemId: string; startHour: number; endHour: number } | null>(null);
+  const dragItemOriginal = useRef<{ itemId: string; startHour: number; endHour: number } | null>(
+    null
+  );
   const scheduledItemsRef = useRef<Item[]>([]);
 
   const trip = trips.find((t) => t.id === id);
@@ -216,24 +232,20 @@ export default function TripDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      "Supprimer ce voyage ?",
-      "Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: async () => {
-            if (id) {
-              setIsLoading(true);
-              await deleteTrip(id);
-              router.back();
-            }
-          },
+    Alert.alert("Supprimer ce voyage ?", "Cette action est irréversible.", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Supprimer",
+        style: "destructive",
+        onPress: async () => {
+          if (id) {
+            setIsLoading(true);
+            await deleteTrip(id);
+            router.back();
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const touchStartTime = useRef(0);
@@ -334,7 +346,9 @@ export default function TripDetailScreen() {
                 })),
               })),
             }));
-            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime }).catch(() => {});
+            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime }).catch(
+              () => {}
+            );
           }
         } else {
           const startH = selStartHour.value;
@@ -374,9 +388,11 @@ export default function TripDetailScreen() {
     if (!selVisible.value) return "";
     return formatHour(selStartHour.value) + " — " + formatHour(selEndHour.value);
   });
-  const selTimeLabelProps = useAnimatedProps(() => ({
-    text: selTimeLabel.value,
-  }));
+  // TextInput.text isn't in the public TextInput props (it's a private/animated path
+  // that Reanimated wires via the worklet shadow tree), so we widen here.
+  const selTimeLabelProps = useAnimatedProps(
+    () => ({ text: selTimeLabel.value }) as Partial<{ text: string }>
+  ) as Partial<TextInputProps>;
 
   const currentDayRef = useRef<typeof currentDay>(null);
 
@@ -398,9 +414,10 @@ export default function TripDetailScreen() {
 
   const visibleDays = Math.min(days.length, MAX_VISIBLE_DAYS);
   const pillContainerWidth = screenWidth - 2 * spacing.lg;
-  const pillWidth = visibleDays > 1
-    ? (pillContainerWidth - DAY_GAP * (visibleDays - 1)) / visibleDays
-    : pillContainerWidth;
+  const pillWidth =
+    visibleDays > 1
+      ? (pillContainerWidth - DAY_GAP * (visibleDays - 1)) / visibleDays
+      : pillContainerWidth;
   currentDayRef.current = currentDay;
   const items = currentDay?.items ?? [];
 
@@ -414,9 +431,7 @@ export default function TripDetailScreen() {
     }
     return acc.dayId === currentDay?.id;
   });
-  const uniqueAccommodations = [
-    ...new Map(activeAccommodations.map((a) => [a.id, a])).values(),
-  ];
+  const uniqueAccommodations = [...new Map(activeAccommodations.map((a) => [a.id, a])).values()];
 
   const nonAccommodationItems = items.filter((i) => i.type !== "accommodation");
   const scheduledItems = nonAccommodationItems
@@ -444,48 +459,57 @@ export default function TripDetailScreen() {
       <View style={styles.container}>
         <View style={styles.tripHeader}>
           <View style={styles.headerRow}>
-            {trip.emoji ? (
-              <Text style={styles.headerEmoji}>{trip.emoji}</Text>
-            ) : null}
+            {trip.emoji ? <Text style={styles.headerEmoji}>{trip.emoji}</Text> : null}
             <View style={styles.headerInfo}>
               <Text style={styles.destination}>{trip.destination}</Text>
-              <Text style={styles.title} numberOfLines={1}>{trip.title}</Text>
+              <Text style={styles.title} numberOfLines={1}>
+                {trip.title}
+              </Text>
             </View>
           </View>
           <Text style={styles.dates}>
-            {new Date(trip.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
+            {new Date(trip.startDate).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "short",
+            })}{" "}
             →{" "}
-            {new Date(trip.endDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+            {new Date(trip.endDate).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
           </Text>
         </View>
 
-        {viewMode !== "organize" && <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dayScroll}
-          contentContainerStyle={styles.dayScrollContent}
-        >
-          {days.map((day, index) => {
-            const { dayName, dayNum } = formatDayLabel(day.date);
-            const isActive = index === selectedDayIndex;
-            const hasItems = (day.items ?? []).length > 0;
-            return (
-              <Pressable
-                key={day.id}
-                onPress={() => setSelectedDayIndex(index)}
-                style={[styles.dayPill, { width: pillWidth }, isActive && styles.dayPillActive]}
-              >
-                <Text style={[styles.dayPillName, isActive && styles.dayPillNameActive]}>
-                  {dayName}
-                </Text>
-                <Text style={[styles.dayPillNum, isActive && styles.dayPillNumActive]}>
-                  {dayNum}
-                </Text>
-                {hasItems && !isActive && <View style={styles.dayDot} />}
-              </Pressable>
-            );
-          })}
-        </ScrollView>}
+        {viewMode !== "organize" && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dayScroll}
+            contentContainerStyle={styles.dayScrollContent}
+          >
+            {days.map((day, index) => {
+              const { dayName, dayNum } = formatDayLabel(day.date);
+              const isActive = index === selectedDayIndex;
+              const hasItems = (day.items ?? []).length > 0;
+              return (
+                <Pressable
+                  key={day.id}
+                  onPress={() => setSelectedDayIndex(index)}
+                  style={[styles.dayPill, { width: pillWidth }, isActive && styles.dayPillActive]}
+                >
+                  <Text style={[styles.dayPillName, isActive && styles.dayPillNameActive]}>
+                    {dayName}
+                  </Text>
+                  <Text style={[styles.dayPillNum, isActive && styles.dayPillNumActive]}>
+                    {dayNum}
+                  </Text>
+                  {hasItems && !isActive && <View style={styles.dayDot} />}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={styles.viewToggle}>
           {(["timeline", "calendar", "organize"] as const).map((mode) => (
@@ -558,7 +582,8 @@ export default function TripDetailScreen() {
                 <View style={styles.organizeEmpty}>
                   <Text style={styles.organizeEmptyEmoji}>💡</Text>
                   <Text style={styles.organizeEmptyText}>
-                    Ajoute des idées d'activités, hébergements ou transports sans te soucier des dates. Tu pourras les placer sur les jours de ton voyage ensuite.
+                    Ajoute des idées d'activités, hébergements ou transports sans te soucier des
+                    dates. Tu pourras les placer sur les jours de ton voyage ensuite.
                   </Text>
                 </View>
               ) : (
@@ -598,7 +623,10 @@ export default function TripDetailScreen() {
                     key={currentDay?.id}
                     items={unscheduledItems}
                     onReorder={(reordered) => {
-                      const orderedItems = reordered.map((item, index) => ({ id: item.id, order: index }));
+                      const orderedItems = reordered.map((item, index) => ({
+                        id: item.id,
+                        order: index,
+                      }));
                       reorderItems(currentDay!.id, orderedItems);
                     }}
                     onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
@@ -625,9 +653,7 @@ export default function TripDetailScreen() {
                   style={[styles.hourRow, { top: (hour - START_HOUR) * HOUR_HEIGHT }]}
                   pointerEvents="none"
                 >
-                  <Text style={styles.hourLabel}>
-                    {String(hour).padStart(2, "0")}:00
-                  </Text>
+                  <Text style={styles.hourLabel}>{String(hour).padStart(2, "0")}:00</Text>
                   <View style={styles.hourSlot}>
                     <View style={styles.hourLine} />
                   </View>
@@ -700,8 +726,12 @@ export default function TripDetailScreen() {
                 router.push(`/trip/add-item?dayId=${currentDay.id}`);
               }
             }}
-            onPressIn={() => { fabScale.value = withSpring(0.9, { damping: 15, stiffness: 400 }); }}
-            onPressOut={() => { fabScale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
+            onPressIn={() => {
+              fabScale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+            }}
+            onPressOut={() => {
+              fabScale.value = withSpring(1, { damping: 12, stiffness: 300 });
+            }}
             style={[styles.fab, fabAnimStyle]}
           >
             <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
@@ -736,14 +766,18 @@ export default function TripDetailScreen() {
                   const { dayName, dayNum } = formatDayLabel(day.date);
                   return (
                     <View key={day.id} style={styles.modalDayGroup}>
-                      <Text style={styles.modalDayLabel}>{dayName} {dayNum}</Text>
+                      <Text style={styles.modalDayLabel}>
+                        {dayName} {dayNum}
+                      </Text>
                       {assigned.map((idea) => {
                         const cfg = getItemTypeConfig(idea.type);
                         const ModalIcon = cfg.icon;
                         return (
                           <View key={idea.id} style={styles.modalIdeaRow}>
                             <ModalIcon size={18} color={cfg.color} />
-                            <Text style={styles.modalIdeaTitle} numberOfLines={1}>{idea.title}</Text>
+                            <Text style={styles.modalIdeaTitle} numberOfLines={1}>
+                              {idea.title}
+                            </Text>
                           </View>
                         );
                       })}
@@ -752,7 +786,10 @@ export default function TripDetailScreen() {
                 })}
               </ScrollView>
               <View style={styles.modalFooter}>
-                <Pressable onPress={() => setDistributionModal(false)} style={styles.modalCancelBtn}>
+                <Pressable
+                  onPress={() => setDistributionModal(false)}
+                  style={styles.modalCancelBtn}
+                >
                   <Text style={styles.modalCancelText}>Annuler</Text>
                 </Pressable>
                 <Pressable
@@ -785,7 +822,12 @@ export default function TripDetailScreen() {
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: c.grayLight },
-    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.grayLight },
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: c.grayLight,
+    },
     loadingText: { fontFamily: fonts.medium, fontSize: fontSize.md, color: c.gray },
     tripHeader: {
       backgroundColor: c.white,
@@ -799,88 +841,264 @@ const makeStyles = (c: ThemeColors) =>
     headerEmoji: { fontSize: 36, marginRight: spacing.md },
     headerInfo: { flex: 1 },
     destination: {
-      fontFamily: fonts.semiBold, fontSize: fontSize.xxs, color: c.rose,
-      textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 2,
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.xxs,
+      color: c.rose,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      marginBottom: 2,
     },
     title: { fontFamily: fonts.bold, fontSize: fontSize.xl, color: c.black, letterSpacing: -0.5 },
     dates: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: c.gray },
-    deleteBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.full },
+    deleteBtn: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.full,
+    },
     deleteBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.red },
     dayScroll: { maxHeight: 90, marginTop: spacing.md },
     dayScrollContent: { paddingHorizontal: spacing.lg, gap: DAY_GAP, alignItems: "center" },
     dayPill: {
-      height: 72, borderRadius: radius.xl, backgroundColor: c.white,
-      alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.grayBorder,
+      height: 72,
+      borderRadius: radius.xl,
+      backgroundColor: c.white,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: c.grayBorder,
     },
-    dayPillActive: { backgroundColor: c.rose, borderColor: c.rose, ...shadow.md, shadowColor: c.rose },
-    dayPillName: { fontFamily: fonts.medium, fontSize: fontSize.xxs, color: c.grayMuted, textTransform: "capitalize", marginBottom: 2 },
+    dayPillActive: {
+      backgroundColor: c.rose,
+      borderColor: c.rose,
+      ...shadow.md,
+      shadowColor: c.rose,
+    },
+    dayPillName: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.xxs,
+      color: c.grayMuted,
+      textTransform: "capitalize",
+      marginBottom: 2,
+    },
     dayPillNameActive: { color: "rgba(255,255,255,0.7)" },
-    dayPillNum: { fontFamily: fonts.bold, fontSize: fontSize.xl, color: c.black, letterSpacing: -0.5 },
+    dayPillNum: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xl,
+      color: c.black,
+      letterSpacing: -0.5,
+    },
     dayPillNumActive: { color: "#FFFFFF" },
     dayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.rose, marginTop: 3 },
     accommodationSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
     timelineScroll: { flex: 1, marginTop: spacing.sm },
     timelineContent: { paddingBottom: 100 },
     timelineGrid: { position: "relative", paddingTop: 8 },
-    hourRow: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "flex-start", height: HOUR_HEIGHT },
-    hourLabel: { width: TIMELINE_LEFT, fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.grayMuted, textAlign: "right", paddingRight: spacing.md, marginTop: -6 },
+    hourRow: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      height: HOUR_HEIGHT,
+    },
+    hourLabel: {
+      width: TIMELINE_LEFT,
+      fontFamily: fonts.medium,
+      fontSize: fontSize.xs,
+      color: c.grayMuted,
+      textAlign: "right",
+      paddingRight: spacing.md,
+      marginTop: -6,
+    },
     hourSlot: { flex: 1, height: HOUR_HEIGHT },
     hourLine: { height: 1, backgroundColor: c.grayBorder },
     selectionOverlay: {
-      position: "absolute", left: TIMELINE_LEFT + spacing.xs, right: spacing.lg,
-      backgroundColor: c.roseMuted, borderRadius: radius.lg, borderWidth: 2,
-      borderColor: c.rose, borderStyle: "dashed", zIndex: 10,
-      justifyContent: "center", alignItems: "center", minHeight: 36,
+      position: "absolute",
+      left: TIMELINE_LEFT + spacing.xs,
+      right: spacing.lg,
+      backgroundColor: c.roseMuted,
+      borderRadius: radius.lg,
+      borderWidth: 2,
+      borderColor: c.rose,
+      borderStyle: "dashed",
+      zIndex: 10,
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: 36,
     },
     selectionContent: { alignItems: "center", width: "100%" },
-    selectionHint: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.rose, textAlign: "center" as const, padding: 0, width: "100%" },
-    viewToggle: {
-      flexDirection: "row", marginHorizontal: spacing.lg, marginTop: spacing.md,
-      backgroundColor: c.grayLight, borderRadius: radius.full, padding: 3,
-      borderWidth: 1, borderColor: c.grayBorder,
+    selectionHint: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.xs,
+      color: c.rose,
+      textAlign: "center" as const,
+      padding: 0,
+      width: "100%",
     },
-    toggleBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.full, alignItems: "center" },
+    viewToggle: {
+      flexDirection: "row",
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      backgroundColor: c.grayLight,
+      borderRadius: radius.full,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: c.grayBorder,
+    },
+    toggleBtn: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.full,
+      alignItems: "center",
+    },
     toggleBtnActive: { backgroundColor: c.white, ...shadow.sm },
     toggleBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.grayMuted },
     toggleBtnTextActive: { color: c.black },
     timelineList: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-    emptyText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, textAlign: "center", marginTop: spacing.xxl },
+    emptyText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+      textAlign: "center",
+      marginTop: spacing.xxl,
+    },
     unscheduledSection: { marginTop: spacing.lg, paddingHorizontal: spacing.lg },
-    unscheduledTitle: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.grayMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: spacing.md },
+    unscheduledTitle: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: spacing.md,
+    },
     fab: {
-      position: "absolute", bottom: 32, right: spacing.lg, width: 60, height: 60,
-      borderRadius: radius.full, backgroundColor: c.rose, alignItems: "center", justifyContent: "center",
-      ...shadow.lg, shadowColor: c.rose,
+      position: "absolute",
+      bottom: 32,
+      right: spacing.lg,
+      width: 60,
+      height: 60,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadow.lg,
+      shadowColor: c.rose,
     },
     ideaBadge: {
-      position: "absolute", top: 2, right: 6, minWidth: 16, height: 16,
-      borderRadius: radius.full, backgroundColor: c.rose, alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+      position: "absolute",
+      top: 2,
+      right: 6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 3,
     },
     ideaBadgeText: { fontFamily: fonts.bold, fontSize: 9, color: "#FFFFFF" },
     organizeContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-    organizeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg },
+    organizeHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: spacing.lg,
+    },
     organizeTitle: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: c.black },
-    organizeSubtitle: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: c.grayMuted, marginTop: 2 },
-    distributeBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: c.rose, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...shadow.sm, shadowColor: c.rose },
+    organizeSubtitle: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.xs,
+      color: c.grayMuted,
+      marginTop: 2,
+    },
+    distributeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+      backgroundColor: c.rose,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      ...shadow.sm,
+      shadowColor: c.rose,
+    },
     distributeBtnText: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: "#FFFFFF" },
     organizeEmpty: { alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing.xxl },
     organizeEmptyEmoji: { fontSize: 48, marginBottom: spacing.lg },
-    organizeEmptyText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, textAlign: "center", lineHeight: 22 },
+    organizeEmptyText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+      textAlign: "center",
+      lineHeight: 22,
+    },
     ideaList: { gap: spacing.sm },
-    travelContainer: { position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, justifyContent: "center", zIndex: 1 },
+    travelContainer: {
+      position: "absolute",
+      left: TIMELINE_LEFT + spacing.sm,
+      right: spacing.lg,
+      justifyContent: "center",
+      zIndex: 1,
+    },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-    modalSheet: { backgroundColor: c.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: 40, maxHeight: "80%" },
-    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    modalSheet: {
+      backgroundColor: c.white,
+      borderTopLeftRadius: radius.xxl,
+      borderTopRightRadius: radius.xxl,
+      paddingTop: spacing.lg,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 40,
+      maxHeight: "80%",
+    },
+    modalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: spacing.sm,
+    },
     modalTitle: { fontFamily: fonts.bold, fontSize: fontSize.lg, color: c.black },
-    modalSubtitle: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, marginBottom: spacing.lg },
+    modalSubtitle: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+      marginBottom: spacing.lg,
+    },
     modalScroll: { maxHeight: 340 },
     modalDayGroup: { marginBottom: spacing.lg },
-    modalDayLabel: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.rose, textTransform: "capitalize", marginBottom: spacing.sm },
-    modalIdeaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: c.grayLight },
+    modalDayLabel: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.rose,
+      textTransform: "capitalize",
+      marginBottom: spacing.sm,
+    },
+    modalIdeaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: c.grayLight,
+    },
     modalIdeaTitle: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.black, flex: 1 },
     modalFooter: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
-    modalCancelBtn: { flex: 1, paddingVertical: 16, borderRadius: radius.full, alignItems: "center", borderWidth: 1.5, borderColor: c.grayBorder },
+    modalCancelBtn: {
+      flex: 1,
+      paddingVertical: 16,
+      borderRadius: radius.full,
+      alignItems: "center",
+      borderWidth: 1.5,
+      borderColor: c.grayBorder,
+    },
     modalCancelText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: c.black },
-    modalConfirmBtn: { flex: 2, paddingVertical: 16, borderRadius: radius.full, alignItems: "center", backgroundColor: c.rose, ...shadow.md, shadowColor: c.rose },
+    modalConfirmBtn: {
+      flex: 2,
+      paddingVertical: 16,
+      borderRadius: radius.full,
+      alignItems: "center",
+      backgroundColor: c.rose,
+      ...shadow.md,
+      shadowColor: c.rose,
+    },
     modalConfirmText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: "#FFFFFF" },
   });
