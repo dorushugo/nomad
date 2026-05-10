@@ -1,47 +1,59 @@
-import { useState, useEffect, useRef } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { Car, FileText, Footprints, Hotel, MapPin, Plane } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
   Alert,
-  Pressable,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
-import { useTripStore } from "../../src/stores/tripStore";
-import { TimePicker } from "../../src/components/TimePicker";
 import { DatePicker } from "../../src/components/DatePicker";
-import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
+import { DocumentList } from "../../src/components/DocumentList";
+import { DocumentPicker } from "../../src/components/DocumentPicker";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
-import { MapPin, Hotel, Plane, FileText, Car, Footprints } from "lucide-react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
+import { TimePicker } from "../../src/components/TimePicker";
 import { useTheme } from "../../src/hooks/useTheme";
+import { useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
 import {
-  transportModes,
-  shouldCalculateDuration,
-  getPlacesTypesForMode,
   getPlacesPlaceholderForMode,
+  getPlacesTypesForMode,
+  shouldCalculateDuration,
+  transportModes,
 } from "../../src/utils/transportModes";
-import { DocumentPicker } from "../../src/components/DocumentPicker";
-import { DocumentList } from "../../src/components/DocumentList";
 
 const getItemTypes = (c: ThemeColors) => [
   { key: "activity" as const, icon: MapPin, label: "Activité", bg: c.roseLight, accent: c.rose },
-  { key: "accommodation" as const, icon: Hotel, label: "Hébergement", bg: "rgba(66, 139, 255, 0.08)", accent: c.blue },
-  { key: "transport" as const, icon: Plane, label: "Transport", bg: "rgba(224, 121, 18, 0.08)", accent: c.orange },
+  {
+    key: "accommodation" as const,
+    icon: Hotel,
+    label: "Hébergement",
+    bg: "rgba(66, 139, 255, 0.08)",
+    accent: c.blue,
+  },
+  {
+    key: "transport" as const,
+    icon: Plane,
+    label: "Transport",
+    bg: "rgba(224, 121, 18, 0.08)",
+    accent: c.orange,
+  },
   { key: "note" as const, icon: FileText, label: "Note", bg: c.grayLight, accent: c.gray },
 ];
 
 export default function EditItemScreen() {
   const { itemId } = useLocalSearchParams<{ itemId: string }>();
-  const { trips, updateItem, deleteItem, uploadDocument, deleteDocument, changeItemDay } = useTripStore();
+  const { trips, updateItem, deleteItem, uploadDocument, deleteDocument, changeItemDay } =
+    useTripStore();
   const { colors } = useTheme();
   const itemTypes = getItemTypes(colors);
 
@@ -50,16 +62,25 @@ export default function EditItemScreen() {
   for (const trip of trips) {
     for (const day of trip.days ?? []) {
       const match = (day.items ?? []).find((i) => i.id === itemId);
-      if (match) { foundItem = match; foundTrip = trip; break; }
+      if (match) {
+        foundItem = match;
+        foundTrip = trip;
+        break;
+      }
     }
     if (!foundItem) {
       const match = (trip.items ?? []).find((i) => i.id === itemId);
-      if (match) { foundItem = match; foundTrip = trip; }
+      if (match) {
+        foundItem = match;
+        foundTrip = trip;
+      }
     }
     if (foundItem) break;
   }
 
-  const [type, setType] = useState<"activity" | "accommodation" | "transport" | "note">(foundItem?.type ?? "activity");
+  const [type, setType] = useState<"activity" | "accommodation" | "transport" | "note">(
+    foundItem?.type ?? "activity"
+  );
   const [title, setTitle] = useState(foundItem?.title ?? "");
   const [description, setDescription] = useState(foundItem?.description ?? "");
   const [location, setLocation] = useState(foundItem?.location ?? "");
@@ -85,7 +106,12 @@ export default function EditItemScreen() {
   const isAccommodation = type === "accommodation";
 
   useEffect(() => {
-    if (!isTransport || !shouldCalculateDuration(transportMode) || !location.trim() || !arrivalLocation.trim()) {
+    if (
+      !isTransport ||
+      !shouldCalculateDuration(transportMode) ||
+      !location.trim() ||
+      !arrivalLocation.trim()
+    ) {
       setDurationSuggestion(null);
       return;
     }
@@ -96,7 +122,9 @@ export default function EditItemScreen() {
       setDurationSuggestion(result);
       setDurationLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isTransport, transportMode, location, arrivalLocation]);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -105,7 +133,9 @@ export default function EditItemScreen() {
     setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
   };
   const registerField = (name: string) => ({
-    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onLayout: (e: any) => {
+      fieldOffsets.current[name] = e.nativeEvent.layout.y;
+    },
     onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
   });
 
@@ -138,7 +168,7 @@ export default function EditItemScreen() {
         location: location.trim() || undefined,
         arrivalLocation: arrivalLocation.trim() || undefined,
         transportMode: isTransport ? transportMode : undefined,
-        price: price ? parseFloat(price) : undefined,
+        price: price ? Number.parseFloat(price) : undefined,
         notes: notes.trim() || undefined,
       });
       const originalDayId = foundItem?.dayId ?? null;
@@ -192,8 +222,8 @@ export default function EditItemScreen() {
       ? "La date de check-out doit être après le check-in"
       : null
     : startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
-    ? "L'heure de fin doit être après l'heure de début"
-    : null;
+      ? "L'heure de fin doit être après l'heure de début"
+      : null;
 
   return (
     <KeyboardAvoidingView
@@ -258,13 +288,19 @@ export default function EditItemScreen() {
                   onPress={() => setSelectedDayId(null)}
                   style={[styles.dayChip, selectedDayId === null && styles.dayChipActive]}
                 >
-                  <Text style={[styles.dayChipText, selectedDayId === null && styles.dayChipTextActive]}>
+                  <Text
+                    style={[styles.dayChipText, selectedDayId === null && styles.dayChipTextActive]}
+                  >
                     💡 Idées
                   </Text>
                 </Pressable>
                 {(foundTrip.days ?? []).map((day) => {
                   const date = new Date(day.date);
-                  const label = date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+                  const label = date.toLocaleDateString("fr-FR", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  });
                   const isActive = selectedDayId === day.id;
                   return (
                     <Pressable
@@ -293,10 +329,7 @@ export default function EditItemScreen() {
                   <Pressable
                     key={mode.key}
                     onPress={() => setTransportMode(mode.key)}
-                    style={[
-                      styles.transportChip,
-                      isActive && styles.transportChipActive,
-                    ]}
+                    style={[styles.transportChip, isActive && styles.transportChipActive]}
                   >
                     <ModeIcon size={22} color={isActive ? colors.orange : colors.grayMuted} />
                     <Text
@@ -348,8 +381,8 @@ export default function EditItemScreen() {
               isTransport
                 ? getPlacesPlaceholderForMode(transportMode)
                 : type === "accommodation"
-                ? "Nom de l'hôtel, adresse..."
-                : "Adresse, lieu..."
+                  ? "Nom de l'hôtel, adresse..."
+                  : "Adresse, lieu..."
             }
             types={isTransport ? getPlacesTypesForMode(transportMode) : "establishment"}
           />
@@ -365,7 +398,12 @@ export default function EditItemScreen() {
           )}
         </SectionBlock>
 
-        <SectionBlock label={isAccommodation ? "Dates du séjour" : isTransport ? "Horaires du trajet" : "Horaires"} colors={colors}>
+        <SectionBlock
+          label={
+            isAccommodation ? "Dates du séjour" : isTransport ? "Horaires du trajet" : "Horaires"
+          }
+          colors={colors}
+        >
           {isTransport && durationLoading && (
             <View style={styles.durationBanner}>
               <Text style={styles.durationText}>Calcul du trajet...</Text>
@@ -374,9 +412,11 @@ export default function EditItemScreen() {
           {isTransport && durationSuggestion && !durationLoading && (
             <View style={styles.durationBanner}>
               <View style={styles.durationLeft}>
-                {durationSuggestion.mode === "walking"
-                  ? <Footprints size={14} color={colors.orange} />
-                  : <Car size={14} color={colors.orange} />}
+                {durationSuggestion.mode === "walking" ? (
+                  <Footprints size={14} color={colors.orange} />
+                ) : (
+                  <Car size={14} color={colors.orange} />
+                )}
                 <Text style={styles.durationText}>
                   Durée estimée : {durationSuggestion.duration}
                 </Text>
@@ -400,19 +440,40 @@ export default function EditItemScreen() {
           {isAccommodation ? (
             <View style={styles.timeRow}>
               <View style={styles.timeHalf}>
-                <DatePicker label="Check-in" value={startDate} onChange={setStartDate} placeholder="Arrivée" />
+                <DatePicker
+                  label="Check-in"
+                  value={startDate}
+                  onChange={setStartDate}
+                  placeholder="Arrivée"
+                />
               </View>
               <View style={styles.timeHalf}>
-                <DatePicker label="Check-out" value={endDate} onChange={setEndDate} placeholder="Départ" minimumDate={startDate || undefined} />
+                <DatePicker
+                  label="Check-out"
+                  value={endDate}
+                  onChange={setEndDate}
+                  placeholder="Départ"
+                  minimumDate={startDate || undefined}
+                />
               </View>
             </View>
           ) : (
             <View style={styles.timeRow}>
               <View style={styles.timeHalf}>
-                <TimePicker label={isTransport ? "Départ" : "Début"} value={startTime} onChange={setStartTime} placeholder={isTransport ? "14:30" : "09:00"} />
+                <TimePicker
+                  label={isTransport ? "Départ" : "Début"}
+                  value={startTime}
+                  onChange={setStartTime}
+                  placeholder={isTransport ? "14:30" : "09:00"}
+                />
               </View>
               <View style={styles.timeHalf}>
-                <TimePicker label={isTransport ? "Arrivée" : "Fin"} value={endTime} onChange={setEndTime} placeholder={isTransport ? "16:45" : "12:00"} />
+                <TimePicker
+                  label={isTransport ? "Arrivée" : "Fin"}
+                  value={endTime}
+                  onChange={setEndTime}
+                  placeholder={isTransport ? "16:45" : "12:00"}
+                />
               </View>
             </View>
           )}
@@ -432,7 +493,9 @@ export default function EditItemScreen() {
           />
           <TextInput
             style={[styles.input, styles.inputMultiline]}
-            placeholder={isTransport ? "N° de vol, réservation... (optionnel)" : "Notes (optionnel)"}
+            placeholder={
+              isTransport ? "N° de vol, réservation... (optionnel)" : "Notes (optionnel)"
+            }
             placeholderTextColor={colors.grayMuted}
             value={notes}
             onChangeText={setNotes}
@@ -477,9 +540,7 @@ export default function EditItemScreen() {
           disabled={isLoading || !!timeError}
           style={[styles.saveBtn, (isLoading || !!timeError) && styles.saveBtnDisabled]}
         >
-          <Text style={styles.saveBtnText}>
-            {isLoading ? "Enregistrement..." : "Enregistrer"}
-          </Text>
+          <Text style={styles.saveBtnText}>{isLoading ? "Enregistrement..." : "Enregistrer"}</Text>
         </Pressable>
       </View>
 
@@ -488,7 +549,11 @@ export default function EditItemScreen() {
   );
 }
 
-function SectionBlock({ label, children, colors }: { label: string; children: React.ReactNode; colors: ThemeColors }) {
+function SectionBlock({
+  label,
+  children,
+  colors,
+}: { label: string; children: React.ReactNode; colors: ThemeColors }) {
   return (
     <View style={{ gap: spacing.sm }}>
       <Text

@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Hotel } from "lucide-react-native";
-import { Item } from "../stores/tripStore";
-import { fonts, fontSize, radius, spacing, shadow, withOpacity } from "../theme";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useTheme } from "../hooks/useTheme";
+import type { Item } from "../stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing, withOpacity } from "../theme";
 import type { ThemeColors } from "../theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

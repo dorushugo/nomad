@@ -1,19 +1,19 @@
+import { Link, Stack, router } from "expo-router";
 import { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { Link, router, Stack } from "expo-router";
-import { useAuthStore } from "../src/stores/authStore";
 import { Button } from "../src/components/Button";
 import { Input } from "../src/components/Input";
-import { fonts, fontSize, spacing, radius } from "../src/theme";
 import { useTheme } from "../src/hooks/useTheme";
+import { useAuthStore } from "../src/stores/authStore";
+import { fontSize, fonts, radius, spacing } from "../src/theme";
 import type { ThemeColors } from "../src/theme";
 
 export default function RegisterScreen() {
@@ -58,9 +58,7 @@ export default function RegisterScreen() {
               <Text style={styles.logoEmoji}>🌍</Text>
             </View>
             <Text style={styles.logo}>Nomad</Text>
-            <Text style={styles.subtitle}>
-              Ton prochain voyage commence ici
-            </Text>
+            <Text style={styles.subtitle}>Ton prochain voyage commence ici</Text>
           </View>
 
           <View style={styles.formCard}>

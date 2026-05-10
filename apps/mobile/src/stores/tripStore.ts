@@ -1,12 +1,12 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Day, Document, Item, Trip } from "@nomad/shared";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { ApiError, daysApi, documentsApi, itemsApi, tripsApi } from "../api";
 import type {
-  ApiTripCreatePayload,
-  ApiItemCreatePayload,
   ApiIdeaCreatePayload,
+  ApiItemCreatePayload,
+  ApiTripCreatePayload,
 } from "./tripStore.types";
 
 export type { Day, Document, Item, Trip };

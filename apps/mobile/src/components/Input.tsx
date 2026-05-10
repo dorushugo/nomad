@@ -1,19 +1,13 @@
 import { useState } from "react";
-import {
-  TextInput,
-  View,
-  Text,
-  StyleSheet,
-  TextInputProps,
-} from "react-native";
+import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import { fonts, fontSize, radius, spacing } from "../theme";
 import { useTheme } from "../hooks/useTheme";
+import { fontSize, fonts, radius, spacing } from "../theme";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -34,8 +28,8 @@ export function Input({ label, error, style, ...props }: InputProps) {
           ? colors.red
           : colors.black
         : error
-        ? colors.red
-        : colors.grayBorder,
+          ? colors.red
+          : colors.grayBorder,
   }));
 
   const handleFocus = () => {
@@ -50,9 +44,7 @@ export function Input({ label, error, style, ...props }: InputProps) {
 
   return (
     <View style={styles.wrapper}>
-      {label && (
-        <Text style={[styles.label, { color: colors.darkGray }]}>{label}</Text>
-      )}
+      {label && <Text style={[styles.label, { color: colors.darkGray }]}>{label}</Text>}
       <AnimatedView
         style={[
           styles.container,

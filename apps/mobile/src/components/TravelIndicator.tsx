@@ -1,18 +1,15 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
 import { Car, Footprints } from "lucide-react-native";
+import { useEffect, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { colors, fontSize, fonts, radius, spacing } from "../theme";
 import { getTransitDuration } from "../utils/directions";
-import { colors, fonts, fontSize, spacing, radius } from "../theme";
 
 interface TravelIndicatorProps {
   originLocation: string;
   destinationLocation: string;
 }
 
-export function TravelIndicator({
-  originLocation,
-  destinationLocation,
-}: TravelIndicatorProps) {
+export function TravelIndicator({ originLocation, destinationLocation }: TravelIndicatorProps) {
   const [duration, setDuration] = useState<string | null>(null);
   const [mode, setMode] = useState<"driving" | "walking">("driving");
   const [loading, setLoading] = useState(true);

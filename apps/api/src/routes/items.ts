@@ -1,6 +1,6 @@
-import { Hono } from "hono";
 import { itemUpdateSchema } from "@nomad/shared";
-import { authMiddleware, type AuthEnv } from "../middleware/auth";
+import { Hono } from "hono";
+import { type AuthEnv, authMiddleware } from "../middleware/auth";
 import { itemService } from "../services/item";
 
 export const itemsRouter = new Hono<AuthEnv>();

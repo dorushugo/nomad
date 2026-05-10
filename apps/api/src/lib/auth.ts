@@ -1,7 +1,7 @@
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { bearer } from "better-auth/plugins/bearer";
-import { expo } from "@better-auth/expo";
 import { env } from "../config/env";
 import { prisma } from "../utils/prisma";
 

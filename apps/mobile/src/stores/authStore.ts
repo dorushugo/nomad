@@ -1,5 +1,5 @@
-import { create } from "zustand";
 import * as WebBrowser from "expo-web-browser";
+import { create } from "zustand";
 import { authClient } from "../lib/auth-client";
 
 interface User {

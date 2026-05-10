@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { fonts } from "../src/theme";
 import { useTheme } from "../src/hooks/useTheme";
+import { fonts } from "../src/theme";
 
 SplashScreen.preventAutoHideAsync();
 

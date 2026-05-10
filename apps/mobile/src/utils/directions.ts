@@ -42,20 +42,29 @@ export async function getTransitDuration(
         const walkLeg = walkJson.routes[0].legs[0];
         const walkMinutes = Math.round(walkLeg.duration.value / 60);
         result = {
-          duration: walkMinutes < 60 ? `${walkMinutes} min` : `${Math.floor(walkMinutes / 60)}h${String(walkMinutes % 60).padStart(2, "0")}`,
+          duration:
+            walkMinutes < 60
+              ? `${walkMinutes} min`
+              : `${Math.floor(walkMinutes / 60)}h${String(walkMinutes % 60).padStart(2, "0")}`,
           durationMinutes: walkMinutes,
           mode: "walking",
         };
       } else {
         result = {
-          duration: durationMinutes < 60 ? `${durationMinutes} min` : `${Math.floor(durationMinutes / 60)}h${String(durationMinutes % 60).padStart(2, "0")}`,
+          duration:
+            durationMinutes < 60
+              ? `${durationMinutes} min`
+              : `${Math.floor(durationMinutes / 60)}h${String(durationMinutes % 60).padStart(2, "0")}`,
           durationMinutes,
           mode: "driving",
         };
       }
     } else {
       result = {
-        duration: durationMinutes < 60 ? `${durationMinutes} min` : `${Math.floor(durationMinutes / 60)}h${String(durationMinutes % 60).padStart(2, "0")}`,
+        duration:
+          durationMinutes < 60
+            ? `${durationMinutes} min`
+            : `${Math.floor(durationMinutes / 60)}h${String(durationMinutes % 60).padStart(2, "0")}`,
         durationMinutes,
         mode: "driving",
       };

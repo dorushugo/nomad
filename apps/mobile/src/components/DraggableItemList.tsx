@@ -1,16 +1,16 @@
+import { GripVertical } from "lucide-react-native";
 import { useCallback, useRef } from "react";
-import { View, StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { GripVertical } from "lucide-react-native";
-import { Item } from "../stores/tripStore";
-import { TimelineBlock } from "./TimelineBlock";
+import type { Item } from "../stores/tripStore";
 import { colors } from "../theme";
+import { TimelineBlock } from "./TimelineBlock";
 
 const ITEM_HEIGHT = 88;
 

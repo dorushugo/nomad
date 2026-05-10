@@ -1,7 +1,24 @@
-import { Plane, TrainFront, Car, Bus, TramFront, Bike, Footprints, Package } from "lucide-react-native";
+import {
+  Bike,
+  Bus,
+  Car,
+  Footprints,
+  Package,
+  Plane,
+  TrainFront,
+  TramFront,
+} from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 
-export type TransportMode = "avion" | "train" | "voiture" | "bus" | "metro" | "velo" | "a_pied" | "autre";
+export type TransportMode =
+  | "avion"
+  | "train"
+  | "voiture"
+  | "bus"
+  | "metro"
+  | "velo"
+  | "a_pied"
+  | "autre";
 
 export const transportModes: { key: TransportMode; icon: LucideIcon; label: string }[] = [
   { key: "avion", icon: Plane, label: "Avion" },
@@ -26,16 +43,22 @@ export function getTransportModeIcon(mode: string | undefined): LucideIcon {
 
 export function getPlacesTypesForMode(mode: string | undefined): string {
   switch (mode) {
-    case "avion": return "airport";
-    case "train": return "transit_station";
-    default: return "establishment";
+    case "avion":
+      return "airport";
+    case "train":
+      return "transit_station";
+    default:
+      return "establishment";
   }
 }
 
 export function getPlacesPlaceholderForMode(mode: string | undefined): string {
   switch (mode) {
-    case "avion": return "Rechercher un aéroport...";
-    case "train": return "Rechercher une gare...";
-    default: return "Gare, aéroport, ville...";
+    case "avion":
+      return "Rechercher un aéroport...";
+    case "train":
+      return "Rechercher une gare...";
+    default:
+      return "Gare, aéroport, ville...";
   }
 }

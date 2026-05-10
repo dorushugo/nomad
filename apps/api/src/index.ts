@@ -5,10 +5,10 @@ import { auth } from "./lib/auth";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/error";
 import { loggerMiddleware } from "./middleware/logger";
-import { tripsRouter } from "./routes/trips";
 import { daysRouter } from "./routes/days";
-import { itemsRouter } from "./routes/items";
 import { documentsRouter } from "./routes/documents";
+import { itemsRouter } from "./routes/items";
+import { tripsRouter } from "./routes/trips";
 
 export const app = new Hono();
 

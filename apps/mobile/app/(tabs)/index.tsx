@@ -1,24 +1,13 @@
-import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  RefreshControl,
-} from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
 import { Plus } from "lucide-react-native";
-import { useAuthStore } from "../../src/stores/authStore";
-import { useTripStore, Trip } from "../../src/stores/tripStore";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Button } from "../../src/components/Button";
-import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
 import { useTheme } from "../../src/hooks/useTheme";
+import { useAuthStore } from "../../src/stores/authStore";
+import { type Trip, useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 import {
   formatTripDate,
@@ -64,19 +53,12 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Pressable
-            onPress={() => router.push("/(tabs)/profile")}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0)?.toUpperCase() || "N"}
-            </Text>
+          <Pressable onPress={() => router.push("/(tabs)/profile")} style={styles.avatar}>
+            <Text style={styles.avatarText}>{user?.name?.charAt(0)?.toUpperCase() || "N"}</Text>
           </Pressable>
           <View style={styles.headerMeta}>
             <Text style={styles.headerGreeting}>Bonjour,</Text>
-            <Text style={styles.headerName}>
-              {user?.name?.split(" ")[0]} 👋
-            </Text>
+            <Text style={styles.headerName}>{user?.name?.split(" ")[0]} 👋</Text>
           </View>
         </View>
       </View>
@@ -85,11 +67,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.rose}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.rose} />
         }
       >
         {currentTrip ? (
@@ -158,12 +136,7 @@ function CurrentTripCard({ trip, colors }: { trip: Trip; colors: ThemeColors }) 
         </Text>
 
         <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${Math.min(progress * 100, 100)}%` },
-            ]}
-          />
+          <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` }]} />
         </View>
       </AnimatedPressable>
     </View>
@@ -221,9 +194,7 @@ function EmptyState({ colors }: { colors: ThemeColors }) {
         <Text style={styles.emptyEmoji}>🗺️</Text>
       </View>
       <Text style={styles.emptyTitle}>Aucun voyage prévu</Text>
-      <Text style={styles.emptyText}>
-        Planifie ta prochaine aventure et retrouve-la ici !
-      </Text>
+      <Text style={styles.emptyText}>Planifie ta prochaine aventure et retrouve-la ici !</Text>
       <Button
         title="Créer un voyage"
         onPress={() => router.push("/create-trip")}

@@ -1,17 +1,27 @@
-import { useState, useEffect, useRef } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
+  Calendar,
+  Car,
+  Clock,
+  FileText,
+  Footprints,
+  Hotel,
+  MapPin,
+  Plane,
+} from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import {
   Alert,
-  Pressable,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
 import Animated, {
   SlideInRight,
   SlideInLeft,
@@ -21,18 +31,21 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import { useTripStore } from "../../src/stores/tripStore";
-import { TimePicker } from "../../src/components/TimePicker";
 import { DatePicker } from "../../src/components/DatePicker";
-import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
-import { MapPin, Hotel, Plane, FileText, Calendar, Clock, Car, Footprints } from "lucide-react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { fonts, fontSize, spacing, radius } from "../../src/theme";
+import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
+import { TimePicker } from "../../src/components/TimePicker";
 import { useTheme } from "../../src/hooks/useTheme";
+import { useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 import { getTransitDuration } from "../../src/utils/directions";
-import { transportModes, shouldCalculateDuration, getPlacesTypesForMode, getPlacesPlaceholderForMode } from "../../src/utils/transportModes";
+import {
+  getPlacesPlaceholderForMode,
+  getPlacesTypesForMode,
+  shouldCalculateDuration,
+  transportModes,
+} from "../../src/utils/transportModes";
 
 const TOTAL_STEPS = 3;
 
@@ -40,8 +53,20 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const getItemTypes = (c: ThemeColors) => [
   { key: "activity" as const, icon: MapPin, label: "Activité", bg: c.roseLight, accent: c.rose },
-  { key: "accommodation" as const, icon: Hotel, label: "Hébergement", bg: "rgba(66, 139, 255, 0.08)", accent: c.blue },
-  { key: "transport" as const, icon: Plane, label: "Transport", bg: "rgba(224, 121, 18, 0.08)", accent: c.orange },
+  {
+    key: "accommodation" as const,
+    icon: Hotel,
+    label: "Hébergement",
+    bg: "rgba(66, 139, 255, 0.08)",
+    accent: c.blue,
+  },
+  {
+    key: "transport" as const,
+    icon: Plane,
+    label: "Transport",
+    bg: "rgba(224, 121, 18, 0.08)",
+    accent: c.orange,
+  },
   { key: "note" as const, icon: FileText, label: "Note", bg: c.grayLight, accent: c.gray },
 ];
 
@@ -130,14 +155,23 @@ export default function AddItemScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [durationSuggestion, setDurationSuggestion] = useState<{ duration: string; durationMinutes: number; mode: "driving" | "walking" } | null>(null);
+  const [durationSuggestion, setDurationSuggestion] = useState<{
+    duration: string;
+    durationMinutes: number;
+    mode: "driving" | "walking";
+  } | null>(null);
   const [durationLoading, setDurationLoading] = useState(false);
 
   const isAccommodation = type === "accommodation";
   const isTransport = type === "transport";
 
   useEffect(() => {
-    if (!isTransport || !shouldCalculateDuration(transportMode) || !location.trim() || !arrivalLocation.trim()) {
+    if (
+      !isTransport ||
+      !shouldCalculateDuration(transportMode) ||
+      !location.trim() ||
+      !arrivalLocation.trim()
+    ) {
       setDurationSuggestion(null);
       return;
     }
@@ -148,7 +182,9 @@ export default function AddItemScreen() {
       setDurationSuggestion(result);
       setDurationLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isTransport, transportMode, location, arrivalLocation]);
 
   const hasNavigated = useRef(false);
@@ -158,7 +194,9 @@ export default function AddItemScreen() {
     setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
   };
   const registerField = (name: string) => ({
-    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onLayout: (e: any) => {
+      fieldOffsets.current[name] = e.nativeEvent.layout.y;
+    },
     onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
   });
 
@@ -193,14 +231,14 @@ export default function AddItemScreen() {
       type,
       title: finalTitle,
       description: description.trim() || undefined,
-      startTime: isAccommodation ? undefined : (startTime.trim() || undefined),
-      endTime: isAccommodation ? undefined : (endTime.trim() || undefined),
-      startDate: isAccommodation ? (startDate || undefined) : undefined,
-      endDate: isAccommodation ? (endDate || undefined) : undefined,
+      startTime: isAccommodation ? undefined : startTime.trim() || undefined,
+      endTime: isAccommodation ? undefined : endTime.trim() || undefined,
+      startDate: isAccommodation ? startDate || undefined : undefined,
+      endDate: isAccommodation ? endDate || undefined : undefined,
       location: location.trim() || undefined,
       arrivalLocation: arrivalLocation.trim() || undefined,
       transportMode: isTransport ? transportMode : undefined,
-      price: price ? parseFloat(price) : undefined,
+      price: price ? Number.parseFloat(price) : undefined,
       notes: notes.trim() || undefined,
     };
 
@@ -220,15 +258,17 @@ export default function AddItemScreen() {
   };
 
   const timeError = isAccommodation
-    ? (startDate && endDate && startDate >= endDate
+    ? startDate && endDate && startDate >= endDate
       ? "La date de check-out doit être après le check-in"
-      : null)
-    : (startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+      : null
+    : startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
       ? "L'heure de fin doit être après l'heure de début"
-      : null);
+      : null;
 
   const enterAnim = hasNavigated.current
-    ? (direction === "forward" ? SlideInRight : SlideInLeft)
+    ? direction === "forward"
+      ? SlideInRight
+      : SlideInLeft
     : undefined;
   const exitAnim = direction === "forward" ? SlideOutLeft : SlideOutRight;
   const typeConfig = itemTypes.find((t) => t.key === type) || itemTypes[0];
@@ -245,17 +285,12 @@ export default function AddItemScreen() {
           style={styles.headerBtn}
           hitSlop={12}
         >
-          <Text style={styles.headerBtnText}>
-            {step === 0 ? "✕" : "←"}
-          </Text>
+          <Text style={styles.headerBtnText}>{step === 0 ? "✕" : "←"}</Text>
         </Pressable>
 
         <View style={styles.dots}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i <= step && styles.dotActive]}
-            />
+            <View key={i} style={[styles.dot, i <= step && styles.dotActive]} />
           ))}
         </View>
 
@@ -274,9 +309,7 @@ export default function AddItemScreen() {
               <typeConfig.icon size={48} color={typeConfig.accent} />
             </View>
             <Text style={styles.question}>Quel type ?</Text>
-            <Text style={styles.hint}>
-              Choisis le type d'élément à ajouter
-            </Text>
+            <Text style={styles.hint}>Choisis le type d'élément à ajouter</Text>
 
             <View style={styles.fieldContainer}>
               <View style={styles.typeGrid}>
@@ -411,10 +444,11 @@ export default function AddItemScreen() {
             <View style={styles.footer}>
               <Pressable
                 onPress={next}
-                disabled={isTransport ? (!location.trim() && !arrivalLocation.trim()) : !title.trim()}
+                disabled={isTransport ? !location.trim() && !arrivalLocation.trim() : !title.trim()}
                 style={[
                   styles.nextBtn,
-                  (isTransport ? (!location.trim() && !arrivalLocation.trim()) : !title.trim()) && styles.nextBtnDisabled,
+                  (isTransport ? !location.trim() && !arrivalLocation.trim() : !title.trim()) &&
+                    styles.nextBtnDisabled,
                 ]}
               >
                 <Text style={styles.nextBtnText}>Suivant</Text>
@@ -439,9 +473,11 @@ export default function AddItemScreen() {
               contentContainerStyle={{ paddingBottom: 200 }}
             >
               <View style={styles.stepIconContainer}>
-                {isAccommodation
-                  ? <Calendar size={48} color={colors.blue} />
-                  : <Clock size={48} color={colors.rose} />}
+                {isAccommodation ? (
+                  <Calendar size={48} color={colors.blue} />
+                ) : (
+                  <Clock size={48} color={colors.rose} />
+                )}
               </View>
               <Text style={styles.question}>
                 {isAccommodation
@@ -465,9 +501,11 @@ export default function AddItemScreen() {
               {isTransport && durationSuggestion && !durationLoading && (
                 <View style={styles.durationBanner}>
                   <View style={styles.durationLeft}>
-                    {durationSuggestion.mode === "walking"
-                      ? <Footprints size={14} color={colors.orange} />
-                      : <Car size={14} color={colors.orange} />}
+                    {durationSuggestion.mode === "walking" ? (
+                      <Footprints size={14} color={colors.orange} />
+                    ) : (
+                      <Car size={14} color={colors.orange} />
+                    )}
                     <Text style={styles.durationText}>
                       Durée estimée : {durationSuggestion.duration}
                     </Text>
@@ -479,7 +517,9 @@ export default function AddItemScreen() {
                         const totalMin = h * 60 + m + durationSuggestion.durationMinutes;
                         const endH = Math.floor(totalMin / 60) % 24;
                         const endM = totalMin % 60;
-                        setEndTime(`${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`);
+                        setEndTime(
+                          `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`
+                        );
                       }}
                       style={styles.durationApplyBtn}
                     >
@@ -491,33 +531,68 @@ export default function AddItemScreen() {
               {isAccommodation ? (
                 <View style={styles.timeRow}>
                   <View style={styles.timeHalf}>
-                    <DatePicker label="Check-in" value={startDate} onChange={setStartDate} placeholder="Arrivée" />
+                    <DatePicker
+                      label="Check-in"
+                      value={startDate}
+                      onChange={setStartDate}
+                      placeholder="Arrivée"
+                    />
                   </View>
                   <View style={styles.timeHalf}>
-                    <DatePicker label="Check-out" value={endDate} onChange={setEndDate} placeholder="Départ" minimumDate={startDate || undefined} />
+                    <DatePicker
+                      label="Check-out"
+                      value={endDate}
+                      onChange={setEndDate}
+                      placeholder="Départ"
+                      minimumDate={startDate || undefined}
+                    />
                   </View>
                 </View>
               ) : isTransport ? (
                 <View style={styles.timeRow}>
                   <View style={styles.timeHalf}>
-                    <TimePicker label="Départ" value={startTime} onChange={setStartTime} placeholder="14:30" />
+                    <TimePicker
+                      label="Départ"
+                      value={startTime}
+                      onChange={setStartTime}
+                      placeholder="14:30"
+                    />
                   </View>
                   <View style={styles.timeHalf}>
-                    <TimePicker label="Arrivée" value={endTime} onChange={setEndTime} placeholder="16:45" />
+                    <TimePicker
+                      label="Arrivée"
+                      value={endTime}
+                      onChange={setEndTime}
+                      placeholder="16:45"
+                    />
                   </View>
                 </View>
               ) : showTime ? (
                 <>
                   <View style={styles.timeRow}>
                     <View style={styles.timeHalf}>
-                      <TimePicker label="Début" value={startTime} onChange={setStartTime} placeholder="09:00" />
+                      <TimePicker
+                        label="Début"
+                        value={startTime}
+                        onChange={setStartTime}
+                        placeholder="09:00"
+                      />
                     </View>
                     <View style={styles.timeHalf}>
-                      <TimePicker label="Fin" value={endTime} onChange={setEndTime} placeholder="12:00" />
+                      <TimePicker
+                        label="Fin"
+                        value={endTime}
+                        onChange={setEndTime}
+                        placeholder="12:00"
+                      />
                     </View>
                   </View>
                   <Pressable
-                    onPress={() => { setShowTime(false); setStartTime(""); setEndTime(""); }}
+                    onPress={() => {
+                      setShowTime(false);
+                      setStartTime("");
+                      setEndTime("");
+                    }}
                     style={styles.removeTimeBtn}
                   >
                     <Text style={styles.removeTimeBtnText}>Supprimer l'horaire</Text>
@@ -542,9 +617,7 @@ export default function AddItemScreen() {
               <TextInput
                 style={[styles.input, styles.inputSecondary]}
                 placeholder={
-                  isTransport
-                    ? "N° de vol, réservation... (optionnel)"
-                    : "Notes (optionnel)"
+                  isTransport ? "N° de vol, réservation... (optionnel)" : "Notes (optionnel)"
                 }
                 placeholderTextColor={colors.grayMuted}
                 value={notes}
@@ -554,23 +627,16 @@ export default function AddItemScreen() {
                 multiline
                 numberOfLines={2}
               />
-              <Text style={styles.docsHint}>
-                Tu pourras ajouter des documents après création
-              </Text>
+              <Text style={styles.docsHint}>Tu pourras ajouter des documents après création</Text>
             </ScrollView>
 
             <View style={styles.footer}>
               <Pressable
                 onPress={handleAdd}
                 disabled={isLoading || !!timeError}
-                style={[
-                  styles.nextBtn,
-                  (isLoading || !!timeError) && styles.nextBtnDisabled,
-                ]}
+                style={[styles.nextBtn, (isLoading || !!timeError) && styles.nextBtnDisabled]}
               >
-                <Text style={styles.nextBtnText}>
-                  {isLoading ? "Ajout..." : "Ajouter"}
-                </Text>
+                <Text style={styles.nextBtnText}>{isLoading ? "Ajout..." : "Ajouter"}</Text>
               </Pressable>
             </View>
           </Animated.View>

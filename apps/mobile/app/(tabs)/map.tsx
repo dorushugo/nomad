@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet } from "react-native";
-import { fonts, fontSize, spacing, radius } from "../../src/theme";
+import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../src/hooks/useTheme";
+import { fontSize, fonts, radius, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 export default function MapScreen() {

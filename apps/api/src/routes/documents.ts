@@ -1,6 +1,6 @@
-import { Hono } from "hono";
 import { documentUploadSchema } from "@nomad/shared";
-import { authMiddleware, type AuthEnv } from "../middleware/auth";
+import { Hono } from "hono";
+import { type AuthEnv, authMiddleware } from "../middleware/auth";
 import { documentService } from "../services/document";
 
 export const documentsRouter = new Hono<AuthEnv>();

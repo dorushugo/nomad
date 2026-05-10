@@ -1,7 +1,7 @@
-import { Pressable, Text, StyleSheet, Alert, ActionSheetIOS, Platform } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import * as DocPicker from "expo-document-picker";
-import { colors, fonts, fontSize, spacing, radius } from "../theme";
+import * as ImagePicker from "expo-image-picker";
+import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { colors, fontSize, fonts, radius, spacing } from "../theme";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 Mo
 
@@ -69,9 +69,7 @@ export function DocumentPicker({ onPick, isUploading }: DocumentPickerProps) {
 
   return (
     <Pressable onPress={handlePress} disabled={isUploading} style={styles.button}>
-      <Text style={styles.buttonText}>
-        {isUploading ? "Envoi..." : "Ajouter un document"}
-      </Text>
+      <Text style={styles.buttonText}>{isUploading ? "Envoi..." : "Ajouter un document"}</Text>
     </Pressable>
   );
 }

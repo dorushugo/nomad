@@ -1,6 +1,6 @@
-import { View, Text, Image, Pressable, StyleSheet, Linking, Alert } from "react-native";
-import { colors, fonts, fontSize, spacing, radius } from "../theme";
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Document } from "../stores/tripStore";
+import { colors, fontSize, fonts, radius, spacing } from "../theme";
 
 interface DocumentListProps {
   documents: Document[];

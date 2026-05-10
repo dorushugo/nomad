@@ -1,14 +1,14 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
+  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { colors, fonts, fontSize, radius, spacing } from "../theme";
+import { colors, fontSize, fonts, radius, spacing } from "../theme";
 import { debugError } from "../utils/logger";
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;

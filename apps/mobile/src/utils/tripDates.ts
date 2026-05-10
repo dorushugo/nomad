@@ -8,11 +8,7 @@ type DateInput = string | Date;
 
 function parseDateOnly(dateInput: DateInput): Date {
   if (dateInput instanceof Date) {
-    return new Date(
-      dateInput.getFullYear(),
-      dateInput.getMonth(),
-      dateInput.getDate()
-    );
+    return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
   }
 
   const ymdMatch = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -41,9 +37,7 @@ function getTripRange(trip: Pick<Trip, "startDate" | "endDate">) {
   };
 }
 
-export function getTripStatus(
-  trip: Pick<Trip, "startDate" | "endDate">
-): TripTimingStatus {
+export function getTripStatus(trip: Pick<Trip, "startDate" | "endDate">): TripTimingStatus {
   const today = getToday().getTime();
   const { start, end } = getTripRange(trip);
 
@@ -65,10 +59,7 @@ export function getCurrentTrip(trips: Trip[]): Trip | null {
 export function getNextTrip(trips: Trip[]): Trip | null {
   const futureTrips = trips
     .filter((trip) => getTripStatus(trip) === "future")
-    .sort(
-      (a, b) =>
-        parseDateOnly(a.startDate).getTime() - parseDateOnly(b.startDate).getTime()
-    );
+    .sort((a, b) => parseDateOnly(a.startDate).getTime() - parseDateOnly(b.startDate).getTime());
 
   return futureTrips[0] || null;
 }
@@ -90,10 +81,7 @@ export function getTotalDays(trip: Pick<Trip, "startDate" | "endDate">): number 
   return Math.ceil((end - start) / MS_PER_DAY) + 1;
 }
 
-export function formatTripDate(
-  dateStr: string,
-  month: "short" | "long" = "short"
-): string {
+export function formatTripDate(dateStr: string, month: "short" | "long" = "short"): string {
   return parseDateOnly(dateStr).toLocaleDateString("fr-FR", {
     day: "numeric",
     month,

@@ -1,37 +1,64 @@
+import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
   Alert,
-  Pressable,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { router } from "expo-router";
 import Animated, {
   SlideInRight,
   SlideInLeft,
   SlideOutLeft,
   SlideOutRight,
 } from "react-native-reanimated";
-import { useTripStore } from "../src/stores/tripStore";
 import { DatePicker } from "../src/components/DatePicker";
-import { PlacesAutocomplete } from "../src/components/PlacesAutocomplete";
 import { LoadingOverlay } from "../src/components/LoadingOverlay";
-import { fonts, fontSize, spacing, radius } from "../src/theme";
+import { PlacesAutocomplete } from "../src/components/PlacesAutocomplete";
 import { useTheme } from "../src/hooks/useTheme";
+import { useTripStore } from "../src/stores/tripStore";
+import { fontSize, fonts, radius, spacing } from "../src/theme";
 import type { ThemeColors } from "../src/theme";
 
 const TOTAL_STEPS = 4;
 
 const EMOJI_OPTIONS = [
-  "✈️", "🌍", "🏖️", "🏔️", "🗼", "🏛️", "🌴", "🏝️", "🎒", "🚗",
-  "🚂", "🛳️", "🏕️", "🌸", "🎿", "🏄", "🧳", "🗺️", "🌅", "🎭",
-  "🇫🇷", "🇮🇹", "🇪🇸", "🇯🇵", "🇺🇸", "🇬🇧", "🇩🇪", "🇧🇷", "🇲🇽", "🇹🇭",
+  "✈️",
+  "🌍",
+  "🏖️",
+  "🏔️",
+  "🗼",
+  "🏛️",
+  "🌴",
+  "🏝️",
+  "🎒",
+  "🚗",
+  "🚂",
+  "🛳️",
+  "🏕️",
+  "🌸",
+  "🎿",
+  "🏄",
+  "🧳",
+  "🗺️",
+  "🌅",
+  "🎭",
+  "🇫🇷",
+  "🇮🇹",
+  "🇪🇸",
+  "🇯🇵",
+  "🇺🇸",
+  "🇬🇧",
+  "🇩🇪",
+  "🇧🇷",
+  "🇲🇽",
+  "🇹🇭",
 ];
 
 export default function CreateTripScreen() {
@@ -55,7 +82,9 @@ export default function CreateTripScreen() {
     setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
   };
   const registerField = (name: string) => ({
-    onLayout: (e: any) => { fieldOffsets.current[name] = e.nativeEvent.layout.y; },
+    onLayout: (e: any) => {
+      fieldOffsets.current[name] = e.nativeEvent.layout.y;
+    },
     onFocus: () => handleInputFocus(fieldOffsets.current[name] ?? 0),
   });
 
@@ -103,7 +132,9 @@ export default function CreateTripScreen() {
   };
 
   const enterAnim = hasNavigated.current
-    ? (direction === "forward" ? SlideInRight : SlideInLeft)
+    ? direction === "forward"
+      ? SlideInRight
+      : SlideInLeft
     : undefined;
   const exitAnim = direction === "forward" ? SlideOutLeft : SlideOutRight;
 
@@ -119,17 +150,12 @@ export default function CreateTripScreen() {
           style={styles.headerBtn}
           hitSlop={12}
         >
-          <Text style={styles.headerBtnText}>
-            {step === 0 ? "✕" : "←"}
-          </Text>
+          <Text style={styles.headerBtnText}>{step === 0 ? "✕" : "←"}</Text>
         </Pressable>
 
         <View style={styles.dots}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i <= step && styles.dotActive]}
-            />
+            <View key={i} style={[styles.dot, i <= step && styles.dotActive]} />
           ))}
         </View>
 
@@ -146,9 +172,7 @@ export default function CreateTripScreen() {
           >
             <Text style={styles.stepEmoji}>✈️</Text>
             <Text style={styles.question}>Où pars-tu ?</Text>
-            <Text style={styles.hint}>
-              Choisis ta destination pour commencer
-            </Text>
+            <Text style={styles.hint}>Choisis ta destination pour commencer</Text>
 
             <ScrollView
               ref={scrollViewRef}
@@ -171,10 +195,7 @@ export default function CreateTripScreen() {
               <Pressable
                 onPress={next}
                 disabled={!destination.trim()}
-                style={[
-                  styles.nextBtn,
-                  !destination.trim() && styles.nextBtnDisabled,
-                ]}
+                style={[styles.nextBtn, !destination.trim() && styles.nextBtnDisabled]}
               >
                 <Text style={styles.nextBtnText}>Suivant</Text>
               </Pressable>
@@ -190,12 +211,8 @@ export default function CreateTripScreen() {
             style={styles.step}
           >
             <Text style={styles.stepEmoji}>📝</Text>
-            <Text style={styles.question}>
-              Donne un nom à{"\n"}ton voyage
-            </Text>
-            <Text style={styles.hint}>
-              Un petit nom pour t'y retrouver
-            </Text>
+            <Text style={styles.question}>Donne un nom à{"\n"}ton voyage</Text>
+            <Text style={styles.hint}>Un petit nom pour t'y retrouver</Text>
 
             <ScrollView
               ref={scrollViewRef}
@@ -231,10 +248,7 @@ export default function CreateTripScreen() {
               <Pressable
                 onPress={next}
                 disabled={!title.trim()}
-                style={[
-                  styles.nextBtn,
-                  !title.trim() && styles.nextBtnDisabled,
-                ]}
+                style={[styles.nextBtn, !title.trim() && styles.nextBtnDisabled]}
               >
                 <Text style={styles.nextBtnText}>Suivant</Text>
               </Pressable>
@@ -252,9 +266,7 @@ export default function CreateTripScreen() {
             <Text style={styles.stepEmoji}>{emoji || "🎨"}</Text>
             <Text style={styles.question}>Choisis un emoji</Text>
             <Text style={styles.hint}>
-              {emoji
-                ? "Tu peux en choisir un autre si tu veux"
-                : "Il représentera ton voyage"}
+              {emoji ? "Tu peux en choisir un autre si tu veux" : "Il représentera ton voyage"}
             </Text>
 
             <View style={styles.fieldContainer}>
@@ -268,10 +280,7 @@ export default function CreateTripScreen() {
                     <Pressable
                       key={e}
                       onPress={() => setEmoji(e)}
-                      style={[
-                        styles.emojiCell,
-                        emoji === e && styles.emojiCellActive,
-                      ]}
+                      style={[styles.emojiCell, emoji === e && styles.emojiCellActive]}
                     >
                       <Text style={styles.emojiText}>{e}</Text>
                     </Pressable>
@@ -284,10 +293,7 @@ export default function CreateTripScreen() {
               <Pressable
                 onPress={next}
                 disabled={!emoji}
-                style={[
-                  styles.nextBtn,
-                  !emoji && styles.nextBtnDisabled,
-                ]}
+                style={[styles.nextBtn, !emoji && styles.nextBtnDisabled]}
               >
                 <Text style={styles.nextBtnText}>Suivant</Text>
               </Pressable>
@@ -304,9 +310,7 @@ export default function CreateTripScreen() {
           >
             <Text style={styles.stepEmoji}>📅</Text>
             <Text style={styles.question}>Quand pars-tu ?</Text>
-            <Text style={styles.hint}>
-              Sélectionne tes dates de voyage
-            </Text>
+            <Text style={styles.hint}>Sélectionne tes dates de voyage</Text>
 
             <View style={styles.fieldContainer}>
               <View style={styles.dateRow}>

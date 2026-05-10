@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../src/stores/authStore";
 
 export default function Index() {

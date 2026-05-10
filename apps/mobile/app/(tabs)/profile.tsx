@@ -1,16 +1,12 @@
-import { View, Text, Pressable } from "react-native";
 import { router } from "expo-router";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
-import { Sun, Moon, Smartphone } from "lucide-react-native";
-import { useAuthStore } from "../../src/stores/authStore";
-import { useTripStore } from "../../src/stores/tripStore";
-import { useThemeStore, type ThemePreference } from "../../src/stores/themeStore";
+import { Moon, Smartphone, Sun } from "lucide-react-native";
+import { Pressable, Text, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useTheme } from "../../src/hooks/useTheme";
-import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { useAuthStore } from "../../src/stores/authStore";
+import { type ThemePreference, useThemeStore } from "../../src/stores/themeStore";
+import { useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -40,8 +36,12 @@ function ThemeOptionButton({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.94, { damping: 15, stiffness: 400 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
+      onPressIn={() => {
+        scale.value = withSpring(0.94, { damping: 15, stiffness: 400 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+      }}
       style={[
         {
           flex: 1,
@@ -54,11 +54,7 @@ function ThemeOptionButton({
         animStyle,
       ]}
     >
-      <option.Icon
-        size={20}
-        color={isActive ? "#FFFFFF" : colors.gray}
-        strokeWidth={2}
-      />
+      <option.Icon size={20} color={isActive ? "#FFFFFF" : colors.gray} strokeWidth={2} />
       <Text
         style={{
           fontFamily: isActive ? fonts.semiBold : fonts.medium,

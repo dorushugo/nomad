@@ -1,5 +1,8 @@
+import { FileText, Hotel, MapPin, Plane, Trash2 } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,14 +11,11 @@ import Animated, {
   runOnJS,
   Easing,
 } from "react-native-reanimated";
-import { Swipeable } from "react-native-gesture-handler";
-import { Trash2, MapPin, Hotel, Plane, FileText } from "lucide-react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { Item } from "../stores/tripStore";
-import { getTransportModeIcon } from "../utils/transportModes";
-import { fonts, fontSize, radius, spacing, shadow, withOpacity } from "../theme";
 import { useTheme } from "../hooks/useTheme";
+import type { Item } from "../stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing, withOpacity } from "../theme";
 import type { ThemeColors } from "../theme";
+import { getTransportModeIcon } from "../utils/transportModes";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 

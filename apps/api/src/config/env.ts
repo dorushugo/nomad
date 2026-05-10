@@ -35,7 +35,7 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  // biome-ignore lint/suspicious/noConsoleLog: boot-time crash, before logger exists
+  // Boot-time crash, before the logger exists. console.error is allowed.
   console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
   process.exit(1);
 }

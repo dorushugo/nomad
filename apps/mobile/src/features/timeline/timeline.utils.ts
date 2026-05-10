@@ -1,5 +1,5 @@
 import type { Day, Item } from "@nomad/shared";
-import { LucideIcon, FileText, Hotel, MapPin, Plane } from "lucide-react-native";
+import { FileText, Hotel, type LucideIcon, MapPin, Plane } from "lucide-react-native";
 import { HOUR_HEIGHT, SNAP_MINUTES, START_HOUR } from "./timeline.constants";
 
 export interface DayLabel {

@@ -1,6 +1,6 @@
-import { Hono } from "hono";
 import { ideaCreateSchema, tripCreateSchema, tripUpdateSchema } from "@nomad/shared";
-import { authMiddleware, type AuthEnv } from "../middleware/auth";
+import { Hono } from "hono";
+import { type AuthEnv, authMiddleware } from "../middleware/auth";
 import { tripService } from "../services/trip";
 
 export const tripsRouter = new Hono<AuthEnv>();

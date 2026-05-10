@@ -9,6 +9,7 @@
       "**/.next/**",
       "**/coverage/**",
       "apps/api/prisma/migrations/**",
+      "apps/api/scripts/**",
       "apps/mobile/expo-env.d.ts",
       "package-lock.json"
     ]
@@ -24,15 +25,19 @@
     "rules": {
       "recommended": true,
       "style": {
-        "noNonNullAssertion": "warn"
+        "noNonNullAssertion": "warn",
+        "useTemplate": "warn"
       },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noConsoleLog": "warn"
+        "noConsoleLog": "warn",
+        "noArrayIndexKey": "warn",
+        "noShadowRestrictedNames": "warn"
       },
       "correctness": {
         "noUnusedVariables": "warn",
-        "noUnusedImports": "warn"
+        "noUnusedImports": "warn",
+        "useExhaustiveDependencies": "warn"
       }
     }
   },

@@ -1,21 +1,21 @@
+import { Link, Stack, router } from "expo-router";
 import { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   Alert,
-  Pressable,
-  TextInput,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { Link, router, Stack } from "expo-router";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { useAuthStore } from "../src/stores/authStore";
-import { fonts, fontSize, spacing, radius } from "../src/theme";
 import { useTheme } from "../src/hooks/useTheme";
+import { useAuthStore } from "../src/stores/authStore";
+import { fonts, radius } from "../src/theme";
 import type { ThemeColors } from "../src/theme";
 
 const { width, height } = Dimensions.get("window");
@@ -100,14 +100,9 @@ export default function LoginScreen() {
               </Pressable>
 
               {!showEmailForm ? (
-                <Pressable
-                  style={styles.pillBtn}
-                  onPress={() => setShowEmailForm(true)}
-                >
+                <Pressable style={styles.pillBtn} onPress={() => setShowEmailForm(true)}>
                   <Text style={styles.mailIcon}>✉️</Text>
-                  <Text style={styles.pillBtnText}>
-                    Se connecter par email
-                  </Text>
+                  <Text style={styles.pillBtnText}>Se connecter par email</Text>
                 </Pressable>
               ) : (
                 <View style={styles.emailForm}>
@@ -135,13 +130,8 @@ export default function LoginScreen() {
                       secureTextEntry={!showPassword}
                       selectionColor={colors.rose}
                     />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      hitSlop={8}
-                    >
-                      <Text style={styles.eyeText}>
-                        {showPassword ? "Masquer" : "Afficher"}
-                      </Text>
+                    <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                      <Text style={styles.eyeText}>{showPassword ? "Masquer" : "Afficher"}</Text>
                     </Pressable>
                   </View>
                   <Pressable

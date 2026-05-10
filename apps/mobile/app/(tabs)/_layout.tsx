@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { House, Luggage, Map, User } from "lucide-react-native";
-import { fonts, fontSize } from "../../src/theme";
 import { useTheme } from "../../src/hooks/useTheme";
+import { fontSize, fonts } from "../../src/theme";
 
 const ICON_SIZE = 22;
 
@@ -33,36 +33,28 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Accueil",
-          tabBarIcon: ({ color }) => (
-            <House size={ICON_SIZE} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <House size={ICON_SIZE} color={color} />,
         }}
       />
       <Tabs.Screen
         name="trips"
         options={{
           title: "Mes Voyages",
-          tabBarIcon: ({ color }) => (
-            <Luggage size={ICON_SIZE} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Luggage size={ICON_SIZE} color={color} />,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: "Carte",
-          tabBarIcon: ({ color }) => (
-            <Map size={ICON_SIZE} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Map size={ICON_SIZE} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profil",
-          tabBarIcon: ({ color }) => (
-            <User size={ICON_SIZE} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <User size={ICON_SIZE} color={color} />,
         }}
       />
     </Tabs>

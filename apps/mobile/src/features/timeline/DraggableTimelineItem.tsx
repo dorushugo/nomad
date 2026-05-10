@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import type { Item } from "@nomad/shared";
+import { useEffect } from "react";
 import Animated, {
   type SharedValue,
   useAnimatedStyle,
@@ -7,8 +7,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { TimelineBlock } from "../../components/TimelineBlock";
 import { spacing } from "../../theme";
-import type { ItemPosition } from "./timeline.utils";
 import { TIMELINE_LEFT } from "./timeline.constants";
+import type { ItemPosition } from "./timeline.utils";
 
 interface DraggableTimelineItemProps {
   item: Item;

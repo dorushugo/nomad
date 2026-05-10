@@ -1,24 +1,13 @@
-import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  RefreshControl,
-} from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
 import { Plus } from "lucide-react-native";
-import { useTripStore } from "../../src/stores/tripStore";
-import { TripCard } from "../../src/components/TripCard";
+import { useCallback, useState } from "react";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Button } from "../../src/components/Button";
-import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { TripCard } from "../../src/components/TripCard";
 import { useTheme } from "../../src/hooks/useTheme";
+import { useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -51,9 +40,7 @@ export default function TripsScreen() {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Mes voyages</Text>
         <Text style={styles.sectionCount}>
-          {trips.length > 0
-            ? `${trips.length} voyage${trips.length > 1 ? "s" : ""}`
-            : ""}
+          {trips.length > 0 ? `${trips.length} voyage${trips.length > 1 ? "s" : ""}` : ""}
         </Text>
       </View>
 
@@ -61,19 +48,12 @@ export default function TripsScreen() {
         data={trips}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TripCard
-            trip={item}
-            onPress={() => router.push(`/trip/${item.id}`)}
-          />
+          <TripCard trip={item} onPress={() => router.push(`/trip/${item.id}`)} />
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.rose}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.rose} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -81,9 +61,7 @@ export default function TripsScreen() {
               <Text style={styles.emptyEmoji}>🗺️</Text>
             </View>
             <Text style={styles.emptyTitle}>Pas encore de voyage</Text>
-            <Text style={styles.emptyText}>
-              Lance-toi et planifie ta prochaine aventure
-            </Text>
+            <Text style={styles.emptyText}>Lance-toi et planifie ta prochaine aventure</Text>
             <Button
               title="Créer un voyage"
               onPress={() => router.push("/create-trip")}

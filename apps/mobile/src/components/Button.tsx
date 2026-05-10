@@ -1,17 +1,7 @@
-import {
-  Pressable,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  ViewStyle,
-} from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
-import { fonts, fontSize, radius, spacing } from "../theme";
+import { ActivityIndicator, Pressable, StyleSheet, Text, type ViewStyle } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useTheme } from "../hooks/useTheme";
+import { fontSize, fonts, radius, spacing } from "../theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -62,8 +52,12 @@ export function Button({
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.97, SPRING_CONFIG); }}
-      onPressOut={() => { scale.value = withSpring(1, SPRING_CONFIG); }}
+      onPressIn={() => {
+        scale.value = withSpring(0.97, SPRING_CONFIG);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, SPRING_CONFIG);
+      }}
       disabled={isDisabled}
       style={[
         styles.base,
@@ -75,14 +69,9 @@ export function Button({
       ]}
     >
       {isLoading ? (
-        <ActivityIndicator
-          color={variant === "primary" ? "#FFFFFF" : colors.rose}
-          size="small"
-        />
+        <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : colors.rose} size="small" />
       ) : (
-        <Text style={[styles.text, textSizeStyles[size], { color: textColor }]}>
-          {title}
-        </Text>
+        <Text style={[styles.text, textSizeStyles[size], { color: textColor }]}>{title}</Text>
       )}
     </AnimatedPressable>
   );
@@ -102,9 +91,24 @@ const styles = StyleSheet.create({
 });
 
 const sizeStyles = StyleSheet.create({
-  sm: { paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: radius.full, minHeight: 36 },
-  md: { paddingVertical: spacing.md - 2, paddingHorizontal: spacing.lg, borderRadius: radius.full, minHeight: 46 },
-  lg: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, borderRadius: radius.full, minHeight: 56 },
+  sm: {
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    minHeight: 36,
+  },
+  md: {
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.full,
+    minHeight: 46,
+  },
+  lg: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.full,
+    minHeight: 56,
+  },
 });
 
 const textSizeStyles = StyleSheet.create({

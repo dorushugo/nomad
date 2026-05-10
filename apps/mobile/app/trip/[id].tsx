@@ -1,45 +1,40 @@
-import { useState, useCallback, useRef } from "react";
+import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Plus, Shuffle, X } from "lucide-react-native";
+import { useCallback, useRef, useState } from "react";
 import {
-  View,
+  Alert,
+  Modal,
+  PanResponder,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   type TextInputProps,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  RefreshControl,
-  PanResponder,
+  View,
   useWindowDimensions,
-  Modal,
 } from "react-native";
-import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedProps,
   useDerivedValue,
   withSpring,
-  withTiming,
-  runOnJS,
 } from "react-native-reanimated";
-import { Plus, Shuffle, X } from "lucide-react-native";
-import { useTripStore, Item } from "../../src/stores/tripStore";
+import { AccommodationCard } from "../../src/components/AccommodationCard";
+import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
-import { DraggableItemList } from "../../src/components/DraggableItemList";
-import { Button } from "../../src/components/Button";
-import { AccommodationCard } from "../../src/components/AccommodationCard";
 import {
   type DistributionAssignment,
   DraggableTimelineItem,
   END_HOUR,
-  HOUR_HEIGHT,
   HOURS,
+  HOUR_HEIGHT,
   MAX_VISIBLE_DAYS,
   START_HOUR,
-  SNAP_MINUTES,
   TIMELINE_LEFT,
   TOUCH_Y_OFFSET,
   distributeIdeas,
@@ -51,8 +46,9 @@ import {
   snapToQuarter,
   yToHour,
 } from "../../src/features/timeline";
-import { fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
 import { useTheme } from "../../src/hooks/useTheme";
+import { type Item, useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
