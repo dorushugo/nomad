@@ -46,3 +46,11 @@ jobs:
 
       - name: Test
         run: npm run test
+        env:
+          DATABASE_URL: postgres://placeholder
+          DIRECT_URL: postgres://placeholder
+          BETTER_AUTH_SECRET: placeholder
+          GOOGLE_CLIENT_ID: placeholder
+          GOOGLE_CLIENT_SECRET: placeholder
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
