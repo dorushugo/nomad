@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
 import { prisma } from "../utils/prisma";
@@ -6,6 +7,12 @@ import { authMiddleware, type AuthEnv } from "../middleware/auth";
 
 export const documentsRouter = new Hono<AuthEnv>();
 documentsRouter.use(authMiddleware);
+
+// Strip path traversal and unsafe characters; preserve extension and readable name.
+function sanitizeFileName(name: string): string {
+  const base = path.basename(name).replace(/[^A-Za-z0-9._-]/g, "_");
+  return base.length > 0 ? base : "file";
+}
 
 // Get signed upload URL + create document record
 documentsRouter.post("/items/:itemId/documents/upload-url", async (c) => {
@@ -28,7 +35,8 @@ documentsRouter.post("/items/:itemId/documents/upload-url", async (c) => {
       })
       .parse(body);
 
-    const storagePath = `${item.dayId}/${item.id}/${Date.now()}_${fileName}`;
+    const safeFileName = sanitizeFileName(fileName);
+    const storagePath = `${item.dayId}/${item.id}/${Date.now()}_${safeFileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(DOCUMENTS_BUCKET)

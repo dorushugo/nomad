@@ -63,8 +63,9 @@ daysRouter.post("/:id/items", async (c) => {
 daysRouter.put("/:id/items/reorder", async (c) => {
   try {
     const userId = c.get("userId");
+    const dayId = c.req.param("id");
     const day = await prisma.day.findFirst({
-      where: { id: c.req.param("id"), trip: { users: { some: { userId } } } },
+      where: { id: dayId, trip: { users: { some: { userId } } } },
     });
     if (!day) return c.json({ error: "Jour non trouvé" }, 404);
 
@@ -73,8 +74,16 @@ daysRouter.put("/:id/items/reorder", async (c) => {
     });
     const { items } = schema.parse(await c.req.json());
 
+    const ids = items.map((i) => i.id);
+    const ownedCount = await prisma.item.count({ where: { id: { in: ids }, dayId } });
+    if (ownedCount !== ids.length) {
+      return c.json({ error: "Élément non autorisé" }, 403);
+    }
+
     await prisma.$transaction(
-      items.map(({ id, order }) => prisma.item.update({ where: { id }, data: { order } }))
+      items.map(({ id, order }) =>
+        prisma.item.updateMany({ where: { id, dayId }, data: { order } })
+      )
     );
     return c.json({ success: true });
   } catch (error) {
