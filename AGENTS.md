@@ -9,8 +9,18 @@ apps/
   api/          # Backend Hono + Prisma + Supabase (Bun runtime)
   mobile/       # React Native / Expo Router (SDK 55)
 packages/
-  shared/       # (vide pour l'instant)
+  shared/       # Schemas Zod + types partagés API ↔ mobile (@nomad/shared)
 ```
+
+Monorepo npm workspaces. `npm install` à la racine installe tout et active lefthook.
+
+### Outillage racine
+| Outil                     | Role                                                      |
+|---------------------------|-----------------------------------------------------------|
+| **Biome**                 | Lint + format (`biome.json`, `npm run lint/format`)       |
+| **lefthook**              | Pre-commit: `biome format --write` sur les fichiers stagés|
+| **tsconfig.base.json**    | Config TypeScript stricte partagée par api et shared      |
+| **CI** (`.github/workflows/ci.yml`) | install → prisma generate → lint → typecheck → test |
 
 ## Stack technique
 
@@ -41,13 +51,23 @@ packages/
 
 ## Scripts
 
+### Racine (npm workspaces)
+```bash
+npm install          # Installe tout + active lefthook
+npm run lint         # Biome check (warnings seulement, exit 0)
+npm run format       # Biome check --write (auto-fix)
+npm run typecheck    # tsc --noEmit dans chaque workspace
+npm run test         # bun test dans api + shared
+```
+
 ### API
 ```bash
 cd apps/api
 bun dev              # Hot reload dev server
 bun start            # Production
+bun test             # Tests unitaires
 bun run db:migrate   # Prisma migrate dev
-bun run db:push      # Push schema sans migration
+bun run db:push      # Push schema sans migration (schema-driven)
 bun run db:generate  # Regenerer le client Prisma
 bun run db:studio    # Prisma Studio GUI
 ```
@@ -68,6 +88,11 @@ npx expo start --ios # iOS simulator
 - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` - Supabase Storage
 - `BETTER_AUTH_SECRET` - Secret pour better-auth
 - `PORT` - Port serveur (defaut: 3000)
+- `ALLOWED_ORIGINS` - Origines CORS autorisées (virgule-séparées; vide = permissif en dev)
+- `LOG_LEVEL` - Niveau de log pino: `fatal|error|warn|info|debug|trace` (defaut: `info`)
+
+Toutes ces vars sont validées au démarrage via Zod dans `src/config/env.ts` — l'API refuse de
+démarrer si une variable obligatoire est manquante ou invalide.
 
 ### Mobile (`apps/mobile/.env`)
 - `EXPO_PUBLIC_API_URL` - URL de l'API (ex: `http://192.168.x.x:3000`)
@@ -171,6 +196,22 @@ app/
 ### Modales
 `create-trip`, `add-item`, `edit-item` s'ouvrent en `presentation: "modal"` avec `slide_from_bottom`.
 
+## Structure mobile (`apps/mobile/src/`)
+
+```
+src/
+  api/           # Client HTTP typé (un module par ressource: trips/days/items/documents)
+  components/    # Composants réutilisables
+  features/
+    timeline/    # Helpers, constantes et DraggableTimelineItem extraits de trip/[id].tsx
+  hooks/         # useTheme
+  lib/           # auth-client better-auth
+  navigation/    # routes.ts — builders de routes typés
+  stores/        # authStore, tripStore, themeStore
+  theme/         # colors, spacing, radius, fonts, fontSize, shadow, withOpacity
+  utils/         # directions, transportModes, tripDates, logger
+```
+
 ## Composants custom (`apps/mobile/src/components/`)
 
 | Composant            | Role                                                      |
@@ -183,10 +224,26 @@ app/
 | `TripCard`           | Carte de voyage dans la liste (emoji, destination, dates) |
 | `TimelineBlock`      | Block d'item sur la timeline (swipe-to-delete)            |
 | `TravelIndicator`    | Indicateur de trajet entre 2 items (duree Google Directions) |
-| `ItemCard`           | Carte d'item (non utilise dans la timeline actuelle)      |
 | `DocumentPicker`     | Picker photo/document (ImagePicker + DocumentPicker)      |
 | `DocumentList`       | Grille de documents avec preview (long press to delete)   |
 | `LoadingOverlay`     | Overlay semi-transparent avec spinner                     |
+
+## Structure API (`apps/api/src/`)
+
+```
+src/
+  config/        # env.ts — validation Zod des vars d'env au démarrage
+  errors/        # AppError + sous-classes (NotFound, Forbidden, etc.)
+  lib/           # auth.ts (better-auth), logger.ts (pino)
+  middleware/    # auth.ts, error.ts (handler global), logger.ts (request log)
+  repositories/  # Prisma queries scopées par propriétaire (trip/day/item/document)
+  routes/        # Handlers Hono minces: parse zod → service → json
+  services/      # Logique métier (trip.create avec génération jours, etc.)
+  utils/         # prisma.ts (singleton), supabase.ts (signing helpers)
+```
+
+Les routes ne contiennent plus de try/catch — elles laissent remonter les erreurs vers
+`middleware/error.ts` (enregistré via `app.onError`), qui les mappe en `{ error, code, details? }`.
 
 ## Stores Zustand (`apps/mobile/src/stores/`)
 
@@ -196,21 +253,26 @@ app/
 - Pas de persistence (session verifiee au boot via better-auth)
 
 ### `tripStore`
-- `trips` / `isLoading`
+- `trips` / `isLoading` / `error: string | null`
 - Persiste dans `AsyncStorage` (cle: `trip-storage`)
-- Actions: `fetchTrips`, `fetchTrip`, `createTrip`, `deleteTrip`, `addItem`, `updateItem`, `deleteItem`, `uploadDocument`, `deleteDocument`
-- L'API client (`src/utils/api.ts`) attache automatiquement le cookie better-auth
+- Actions: `fetchTrips`, `fetchTrip`, `createTrip`, `deleteTrip`, `addItem`, `addTripIdea`,
+  `updateItem`, `assignIdeaToDay`, `changeItemDay`, `deleteItem`, `reorderItems`,
+  `uploadDocument`, `deleteDocument`, `clearError`
+- Toutes les mutations ont un rollback optimiste en cas d'erreur API
+- Utilise `src/api/*` (typage fort, 10s timeout, AbortController, ApiError)
+- Types importés depuis `@nomad/shared` (pas de duplication avec l'API)
 
 ## Theme (`apps/mobile/src/theme/index.ts`)
 
-| Token    | Exports disponibles                                      |
-|----------|----------------------------------------------------------|
-| Colors   | `rose` (#FF385C) comme couleur primaire, neutrals, semantic |
-| Spacing  | xxs(2) xs(4) sm(8) md(16) lg(24) xl(32) xxl(48) xxxl(64) |
-| Radius   | xs(4) sm(8) md(12) lg(16) xl(24) xxl(32) full(999)       |
-| Fonts    | regular, medium, semiBold, bold (Poppins)                 |
-| FontSize | xxs(10) xs(12) sm(14) md(16) lg(18) xl(22) xxl(28) xxxl(36) display(48) |
-| Shadow   | sm, md, lg (avec elevation Android)                       |
+| Token       | Exports disponibles                                      |
+|-------------|----------------------------------------------------------|
+| Colors      | `rose` (#FF385C) couleur primaire, neutrals, semantic (dark/light via `useTheme()`) |
+| Spacing     | xxs(2) xs(4) sm(8) md(16) lg(24) xl(32) xxl(48) xxxl(64) |
+| Radius      | xs(4) sm(8) md(12) lg(16) xl(24) xxl(32) full(999)       |
+| Fonts       | regular, medium, semiBold, bold (Poppins)                 |
+| FontSize    | xxs(10) xs(12) sm(14) md(16) lg(18) xl(22) xxl(28) xxxl(36) display(48) |
+| Shadow      | sm, md, lg (avec elevation Android)                       |
+| `withOpacity(color, alpha)` | Applique un canal alpha à une couleur hex/rgba |
 
 ## Patterns et conventions
 
@@ -219,14 +281,15 @@ app/
 - Design inspire Airbnb : `colors.rose` partout, coins arrondis, shadows douces
 - Toutes les animations utilisent `react-native-reanimated` (spring pour les press, timing pour les transitions)
 - Les formulaires multi-etapes utilisent un pattern wizard avec progress dots et animations slide
+- Les composants appellent `const { colors } = useTheme()` et passent `colors` à `makeStyles(colors)`
 
 ### Code
-- TypeScript partout (strict)
-- Validation Zod cote API avant tout traitement
-- Pas de tests unitaires pour l'instant
-- Pas de monorepo manager (pas de turborepo/nx) - simple structure `apps/` + `packages/`
-- Le root `package.json` ne contient aucun script, juste `"name": "nomad"`
-- Les `console.log` de debug sont encore presents dans l'auth middleware et PlacesAutocomplete
+- TypeScript strict partout; schémas Zod centralisés dans `@nomad/shared`
+- API mobile: `src/api/*` (typé, timeout, rollback) — ne pas utiliser `fetch` directement
+- Les erreurs de mutation sont exposées via `tripStore.error` (string | null), pas silenciées
+- Logs de debug dans `src/utils/logger.ts` (debug/debugError, strippés en production)
+- Pas de `console.log` dans le code source (seulement `console.error` pour les crashs critiques)
+- Tests: `bun test` dans `apps/api` et `packages/shared`
 
 ### Auth flow
 1. Au boot, `app/index.tsx` appelle `checkSession()` via better-auth

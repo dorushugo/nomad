@@ -1,3 +1,18 @@
+## 🔐 PRIORITÉ SÉCURITÉ — Rotation des credentials (à faire dès que possible)
+
+Les fichiers `.env` ont été committés dans l'historique git. Les credentials suivants sont exposés
+et doivent être **régénérés immédiatement** dans les dashboards correspondants :
+
+- **Supabase** : mot de passe DB + service-role key (https://app.supabase.com → Settings → API)
+- **Google Cloud** : client secret OAuth (https://console.cloud.google.com → APIs & Services → Credentials)
+- **BETTER_AUTH_SECRET** : générer une nouvelle valeur avec `openssl rand -base64 32`
+- **Google Places API key** : régénérer + restreindre aux bundle IDs iOS/Android
+
+Après rotation, nettoyer l'historique git avec `git filter-repo --path apps/api/.env --invert-paths`
+(nécessite `pip install git-filter-repo`). Puis `git push --force` sur toutes les branches.
+
+---
+
 Gérer toutes heures en UTC côté DB et faire la traduction dans le bon fuseau horaire basé sur le téléphone comme ça c'est toujours bon
 
 Vue timeline avec event sans horaire obligatoire : une liste d'évent dragable pour ordonner. Les évent qui ont un horaire sont aussi affiché dans la vue calendrier
