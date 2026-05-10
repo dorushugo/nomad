@@ -1,57 +1,10 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { Day, Document, Item, Trip } from "@nomad/shared";
 import { api } from "../utils/api";
 
-export interface Document {
-  id: string;
-  itemId: string;
-  fileName: string;
-  fileUrl: string;
-  fileType: string;
-  fileSize: number;
-  createdAt: string;
-}
-
-export interface Item {
-  id: string;
-  type: "activity" | "accommodation" | "transport" | "note";
-  title: string;
-  description?: string;
-  startTime?: string;
-  endTime?: string;
-  startDate?: string;
-  endDate?: string;
-  location?: string;
-  arrivalLocation?: string;
-  transportMode?: string;
-  price?: number;
-  notes?: string;
-  link?: string;
-  order: number;
-  dayId?: string;
-  tripId?: string;
-  documents?: Document[];
-}
-
-export interface Day {
-  id: string;
-  date: string;
-  tripId: string;
-  items: Item[];
-}
-
-export interface Trip {
-  id: string;
-  title: string;
-  description?: string;
-  destination: string;
-  emoji?: string;
-  startDate: string;
-  endDate: string;
-  days: Day[];
-  items: Item[]; // Idées non planifiées
-}
+export type { Day, Document, Item, Trip };
 
 type RawDay = Omit<Day, "items"> & { items?: Item[] };
 type RawTrip = Omit<Trip, "days" | "items"> & { days?: RawDay[]; items?: Item[] };
@@ -93,13 +46,19 @@ interface TripState {
   }) => Promise<Trip>;
   deleteTrip: (id: string) => Promise<void>;
   addItem: (dayId: string, data: Omit<Item, "id" | "dayId" | "tripId" | "order">) => Promise<Item>;
-  addTripIdea: (tripId: string, data: Omit<Item, "id" | "dayId" | "tripId" | "order">) => Promise<Item>;
+  addTripIdea: (
+    tripId: string,
+    data: Omit<Item, "id" | "dayId" | "tripId" | "order">
+  ) => Promise<Item>;
   updateItem: (itemId: string, data: Partial<Item>) => Promise<void>;
   assignIdeaToDay: (itemId: string, dayId: string, tripId: string) => Promise<void>;
   changeItemDay: (itemId: string, newDayId: string | null, tripId: string) => Promise<void>;
   deleteItem: (itemId: string, tripId?: string) => Promise<void>;
   reorderItems: (dayId: string, orderedItems: { id: string; order: number }[]) => Promise<void>;
-  uploadDocument: (itemId: string, file: { uri: string; name: string; type: string; size: number }) => Promise<Document>;
+  uploadDocument: (
+    itemId: string,
+    file: { uri: string; name: string; type: string; size: number }
+  ) => Promise<Document>;
   deleteDocument: (documentId: string) => Promise<void>;
 }
 
@@ -157,9 +116,7 @@ export const useTripStore = create<TripState>()(
         const item = normalizeItem(await api.post(`/trips/${tripId}/items`, data));
         set((state) => ({
           trips: state.trips.map((trip) =>
-            trip.id === tripId
-              ? { ...trip, items: [...(trip.items ?? []), item] }
-              : trip
+            trip.id === tripId ? { ...trip, items: [...(trip.items ?? []), item] } : trip
           ),
         }));
         return item;
@@ -272,10 +229,11 @@ export const useTripStore = create<TripState>()(
       },
 
       uploadDocument: async (itemId, file) => {
-        const { document, uploadUrl } = await api.post(
-          `/items/${itemId}/documents/upload-url`,
-          { fileName: file.name, fileType: file.type, fileSize: file.size }
-        );
+        const { document, uploadUrl } = await api.post(`/items/${itemId}/documents/upload-url`, {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        });
 
         const response = await fetch(file.uri);
         const blob = await response.blob();

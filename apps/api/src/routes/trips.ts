@@ -1,20 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { ideaCreateSchema, tripCreateSchema, tripUpdateSchema } from "@nomad/shared";
 import { prisma } from "../utils/prisma";
 import { authMiddleware, type AuthEnv } from "../middleware/auth";
 import { signTripDocuments } from "../utils/supabase";
 
 export const tripsRouter = new Hono<AuthEnv>();
 tripsRouter.use(authMiddleware);
-
-const tripSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().optional(),
-  destination: z.string().min(1),
-  emoji: z.string().optional(),
-  startDate: z.string().transform((s) => new Date(s)),
-  endDate: z.string().transform((s) => new Date(s)),
-});
 
 // List user's trips
 tripsRouter.get("/", async (c) => {
@@ -67,21 +59,8 @@ tripsRouter.post("/:id/items", async (c) => {
       return c.json({ error: "Voyage non trouve" }, 404);
     }
 
-    const ideaSchema = z.object({
-      type: z.enum(["activity", "accommodation", "transport", "note"]),
-      title: z.string().min(1),
-      description: z.string().optional(),
-      location: z.string().optional(),
-      arrivalLocation: z.string().optional(),
-      transportMode: z.string().optional(),
-      price: z.number().optional(),
-      notes: z.string().optional(),
-      link: z.string().optional(),
-      order: z.number().optional(),
-    });
-
     const body = await c.req.json();
-    const data = ideaSchema.parse(body);
+    const data = ideaCreateSchema.parse(body);
 
     if (data.order === undefined) {
       const lastIdea = await prisma.item.findFirst({
@@ -110,19 +89,22 @@ tripsRouter.post("/", async (c) => {
   try {
     const userId = c.get("userId");
     const body = await c.req.json();
-    const data = tripSchema.parse(body);
+    const parsed = tripCreateSchema.parse(body);
+    const startDate = new Date(parsed.startDate);
+    const endDate = new Date(parsed.endDate);
 
     const days: { date: Date }[] = [];
-    const current = new Date(data.startDate);
-    const end = new Date(data.endDate);
-    while (current <= end) {
+    const current = new Date(startDate);
+    while (current <= endDate) {
       days.push({ date: new Date(current) });
       current.setDate(current.getDate() + 1);
     }
 
     const trip = await prisma.trip.create({
       data: {
-        ...data,
+        ...parsed,
+        startDate,
+        endDate,
         users: { create: { userId, role: "owner" } },
         days: { create: days },
       },
@@ -149,7 +131,7 @@ tripsRouter.put("/:id", async (c) => {
   try {
     const userId = c.get("userId");
     const body = await c.req.json();
-    const data = tripSchema.partial().parse(body);
+    const parsed = tripUpdateSchema.parse(body);
 
     const trip = await prisma.trip.findFirst({
       where: { id: c.req.param("id"), users: { some: { userId, role: "owner" } } },
@@ -157,6 +139,12 @@ tripsRouter.put("/:id", async (c) => {
     if (!trip) {
       return c.json({ error: "Voyage non trouve" }, 404);
     }
+
+    const data = {
+      ...parsed,
+      ...(parsed.startDate ? { startDate: new Date(parsed.startDate) } : {}),
+      ...(parsed.endDate ? { endDate: new Date(parsed.endDate) } : {}),
+    };
 
     const updated = await prisma.trip.update({
       where: { id: c.req.param("id") },

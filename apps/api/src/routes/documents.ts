@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Hono } from "hono";
 import { z } from "zod";
+import { documentUploadSchema } from "@nomad/shared";
 import { prisma } from "../utils/prisma";
 import { supabase, DOCUMENTS_BUCKET, signDocuments } from "../utils/supabase";
 import { authMiddleware, type AuthEnv } from "../middleware/auth";
@@ -27,13 +28,7 @@ documentsRouter.post("/items/:itemId/documents/upload-url", async (c) => {
     if (!item) return c.json({ error: "Element non trouve" }, 404);
 
     const body = await c.req.json();
-    const { fileName, fileType, fileSize } = z
-      .object({
-        fileName: z.string().min(1),
-        fileType: z.string().min(1),
-        fileSize: z.number().positive().max(10 * 1024 * 1024, "Fichier trop volumineux (max 10 Mo)"),
-      })
-      .parse(body);
+    const { fileName, fileType, fileSize } = documentUploadSchema.parse(body);
 
     const safeFileName = sanitizeFileName(fileName);
     const storagePath = `${item.dayId}/${item.id}/${Date.now()}_${safeFileName}`;

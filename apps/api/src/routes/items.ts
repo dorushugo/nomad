@@ -1,29 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { itemUpdateSchema } from "@nomad/shared";
 import { prisma } from "../utils/prisma";
 import { authMiddleware, type AuthEnv } from "../middleware/auth";
 import { signDocuments } from "../utils/supabase";
 
 export const itemsRouter = new Hono<AuthEnv>();
 itemsRouter.use(authMiddleware);
-
-const updateItemSchema = z.object({
-  type: z.enum(["activity", "accommodation", "transport", "note"]).optional(),
-  title: z.string().min(1).optional(),
-  description: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  location: z.string().optional(),
-  arrivalLocation: z.string().optional(),
-  transportMode: z.string().optional(),
-  price: z.number().optional(),
-  notes: z.string().optional(),
-  link: z.string().optional(),
-  order: z.number().optional(),
-  dayId: z.string().nullable().optional(),
-});
 
 async function findItemForUser(itemId: string, userId: string) {
   return prisma.item.findFirst({
@@ -47,7 +30,7 @@ itemsRouter.put("/:id", async (c) => {
     }
 
     const body = await c.req.json();
-    const data = updateItemSchema.parse(body);
+    const data = itemUpdateSchema.parse(body);
 
     const updateData: any = { ...data };
     if (data.dayId !== undefined) {

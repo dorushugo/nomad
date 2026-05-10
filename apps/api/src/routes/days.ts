@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { dayUpdateSchema, itemCreateSchema, reorderItemsSchema } from "@nomad/shared";
 import { prisma } from "../utils/prisma";
 import { authMiddleware, type AuthEnv } from "../middleware/auth";
 import { signDocuments, signItemDocuments } from "../utils/supabase";
@@ -18,25 +19,8 @@ daysRouter.post("/:id/items", async (c) => {
       return c.json({ error: "Jour non trouve" }, 404);
     }
 
-    const itemSchema = z.object({
-      type: z.enum(["activity", "accommodation", "transport", "note"]),
-      title: z.string().min(1),
-      description: z.string().optional(),
-      startTime: z.string().optional(),
-      endTime: z.string().optional(),
-      startDate: z.string().optional(),
-      endDate: z.string().optional(),
-      location: z.string().optional(),
-      arrivalLocation: z.string().optional(),
-      transportMode: z.string().optional(),
-      price: z.number().optional(),
-      notes: z.string().optional(),
-      link: z.string().optional(),
-      order: z.number().optional(),
-    });
-
     const body = await c.req.json();
-    const data = itemSchema.parse(body);
+    const data = itemCreateSchema.parse(body);
 
     if (data.order === undefined) {
       const lastItem = await prisma.item.findFirst({
@@ -69,10 +53,7 @@ daysRouter.put("/:id/items/reorder", async (c) => {
     });
     if (!day) return c.json({ error: "Jour non trouvé" }, 404);
 
-    const schema = z.object({
-      items: z.array(z.object({ id: z.string(), order: z.number().int() })),
-    });
-    const { items } = schema.parse(await c.req.json());
+    const { items } = reorderItemsSchema.parse(await c.req.json());
 
     const ids = items.map((i) => i.id);
     const ownedCount = await prisma.item.count({ where: { id: { in: ids }, dayId } });
@@ -105,14 +86,18 @@ daysRouter.put("/:id", async (c) => {
       return c.json({ error: "Jour non trouve" }, 404);
     }
 
-    const body = await c.req.json();
+    const parsed = dayUpdateSchema.parse(await c.req.json());
+    const data = parsed.date ? { date: new Date(parsed.date) } : {};
     const updated = await prisma.day.update({
       where: { id: c.req.param("id") },
-      data: body,
+      data,
       include: { items: { include: { documents: true }, orderBy: { order: "asc" } } },
     });
     return c.json({ ...updated, items: await signItemDocuments(updated.items) });
-  } catch {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: error.errors }, 400);
+    }
     return c.json({ error: "Erreur serveur" }, 500);
   }
 });
