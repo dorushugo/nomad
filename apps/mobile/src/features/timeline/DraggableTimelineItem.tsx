@@ -16,7 +16,7 @@ interface DraggableTimelineItemProps {
   draggedItemId: SharedValue<string>;
   dragDeltaY: SharedValue<number>;
   onPress: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 // Absolutely-positioned timeline block that animates drag offset/scale
