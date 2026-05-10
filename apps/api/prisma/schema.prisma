@@ -72,6 +72,8 @@ model Trip {
   items       Item[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([startDate])
 }
 
 model TripUser {
@@ -118,6 +120,9 @@ model Item {
   documents       Document[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+
+  @@index([dayId, order])
+  @@index([tripId, dayId])
 }
 
 model Document {
@@ -129,4 +134,6 @@ model Document {
   fileType  String
   fileSize  Int
   createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
