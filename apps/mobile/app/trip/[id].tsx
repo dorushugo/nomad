@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
 import Animated, {
-  SharedValue,
   useSharedValue,
   useAnimatedStyle,
   useAnimatedProps,
@@ -24,15 +23,34 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { Plus, Shuffle, X, MapPin, Hotel, Plane, FileText } from "lucide-react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { useTripStore, Item, Day } from "../../src/stores/tripStore";
+import { Plus, Shuffle, X } from "lucide-react-native";
+import { useTripStore, Item } from "../../src/stores/tripStore";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
 import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { Button } from "../../src/components/Button";
 import { AccommodationCard } from "../../src/components/AccommodationCard";
+import {
+  type DistributionAssignment,
+  DraggableTimelineItem,
+  END_HOUR,
+  HOUR_HEIGHT,
+  HOURS,
+  MAX_VISIBLE_DAYS,
+  START_HOUR,
+  SNAP_MINUTES,
+  TIMELINE_LEFT,
+  TOUCH_Y_OFFSET,
+  distributeIdeas,
+  formatDayLabel,
+  formatHour,
+  getItemPosition,
+  getItemTypeConfig,
+  parseTime,
+  snapToQuarter,
+  yToHour,
+} from "../../src/features/timeline";
 import { fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
 import { useTheme } from "../../src/hooks/useTheme";
 import type { ThemeColors } from "../../src/theme";
@@ -40,144 +58,7 @@ import type { ThemeColors } from "../../src/theme";
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
-const HOUR_HEIGHT = 72;
-const START_HOUR = 6;
-const END_HOUR = 23;
-const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-const TIMELINE_LEFT = 80;
-const SNAP_MINUTES = 15;
-const TOUCH_Y_OFFSET = -15;
-
-function formatDayLabel(dateStr: string) {
-  const date = new Date(dateStr);
-  const dayName = date.toLocaleDateString("fr-FR", { weekday: "short" });
-  const dayNum = date.getDate();
-  return { dayName, dayNum };
-}
-
-function parseTime(time: string): number | null {
-  const match = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  return parseInt(match[1]) + parseInt(match[2]) / 60;
-}
-
-function formatHour(hour: number): string {
-  "worklet";
-  const h = Math.floor(hour);
-  const m = Math.round((hour - h) * 60);
-  const hStr = h < 10 ? "0" + h : "" + h;
-  const mStr = m < 10 ? "0" + m : "" + m;
-  return hStr + ":" + mStr;
-}
-
-function snapToQuarter(hour: number): number {
-  return Math.round(hour * (60 / SNAP_MINUTES)) / (60 / SNAP_MINUTES);
-}
-
-function yToHour(y: number): number {
-  return snapToQuarter(START_HOUR + y / HOUR_HEIGHT);
-}
-
-function getItemPosition(item: Item) {
-  if (!item.startTime) return null;
-  const start = parseTime(item.startTime);
-  if (start == null) return null;
-  const end = item.endTime ? parseTime(item.endTime) : null;
-  const duration = end != null && end > start ? end - start : 0.75;
-  const top = (start - START_HOUR) * HOUR_HEIGHT;
-  const height = Math.max(duration * HOUR_HEIGHT, 44);
-  return { top, height };
-}
-
-function getItemTypeConfig(type: string): { icon: LucideIcon; color: string } {
-  const map: Record<string, { icon: LucideIcon; color: string }> = {
-    activity: { icon: MapPin, color: "#FF385C" },
-    accommodation: { icon: Hotel, color: "#428BFF" },
-    transport: { icon: Plane, color: "#E07912" },
-    note: { icon: FileText, color: "#717171" },
-  };
-  return map[type] ?? map.activity;
-}
-
-function DraggableTimelineItem({
-  item,
-  pos,
-  draggedItemId,
-  dragDeltaY,
-  onPress,
-  onDelete,
-}: {
-  item: Item;
-  pos: { top: number; height: number };
-  draggedItemId: SharedValue<string>;
-  dragDeltaY: SharedValue<number>;
-  onPress: () => void;
-  onDelete: () => void;
-}) {
-  const topSV = useSharedValue(pos.top);
-  const heightSV = useSharedValue(pos.height);
-
-  useEffect(() => {
-    topSV.value = pos.top;
-    heightSV.value = pos.height;
-  }, [pos.top, pos.height]);
-
-  const animStyle = useAnimatedStyle(() => {
-    const isDragged = draggedItemId.value === item.id;
-    return {
-      top: topSV.value,
-      height: heightSV.value,
-      transform: [
-        { translateY: isDragged ? dragDeltaY.value : 0 } as const,
-        { scale: isDragged ? 1.04 : 1 } as const,
-      ],
-      zIndex: isDragged ? 100 : 2,
-    };
-  });
-
-  return (
-    <Animated.View
-      style={[
-        { position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, zIndex: 2 },
-        animStyle,
-      ]}
-    >
-      <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} fill />
-    </Animated.View>
-  );
-}
-
-const MAX_VISIBLE_DAYS = 6;
 const DAY_GAP = spacing.sm;
-
-type DistributionAssignment = { itemId: string; dayId: string };
-
-function distributeIdeas(ideas: Item[], days: Day[]): DistributionAssignment[] {
-  const typePriority: Record<string, number> = {
-    accommodation: 0,
-    transport: 1,
-    activity: 2,
-    note: 3,
-  };
-  const sorted = [...ideas].sort(
-    (a, b) => (typePriority[a.type] ?? 2) - (typePriority[b.type] ?? 2)
-  );
-  const dayLoad = days.map((day) => ({
-    day,
-    load: (day.items ?? []).filter((i) => i.type !== "accommodation").length,
-  }));
-  const assignments: DistributionAssignment[] = [];
-  for (const idea of sorted) {
-    if (idea.type === "accommodation") {
-      assignments.push({ itemId: idea.id, dayId: days[0].id });
-      continue;
-    }
-    const minDay = dayLoad.reduce((min, curr) => (curr.load < min.load ? curr : min));
-    assignments.push({ itemId: idea.id, dayId: minDay.day.id });
-    minDay.load++;
-  }
-  return assignments;
-}
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
