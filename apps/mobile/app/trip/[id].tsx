@@ -1,6 +1,6 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Plus, Shuffle, X } from "lucide-react-native";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -21,6 +21,8 @@ import Animated, {
   useAnimatedProps,
   useDerivedValue,
   withSpring,
+  withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 import { AccommodationCard } from "../../src/components/AccommodationCard";
 import { DraggableItemList } from "../../src/components/DraggableItemList";
@@ -55,6 +57,21 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const DAY_GAP = spacing.sm;
+const FRENCH_DAY_NAMES = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
+const FRENCH_MONTH_NAMES = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
 
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -66,8 +83,26 @@ export default function TripDetailScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [viewMode, setViewMode] = useState<"timeline" | "calendar" | "organize">("timeline");
+  const [calendarSelectedDayIndex, setCalendarSelectedDayIndex] = useState<number | null>(null);
   const [distributionModal, setDistributionModal] = useState(false);
   const [distributionPlan, setDistributionPlan] = useState<DistributionAssignment[]>([]);
+  const sheetTranslateY = useSharedValue(600);
+
+  const closeDistributionModal = useCallback(() => {
+    sheetTranslateY.value = withTiming(600, { duration: 250 }, (finished) => {
+      if (finished) runOnJS(setDistributionModal)(false);
+    });
+  }, [sheetTranslateY]);
+
+  useEffect(() => {
+    if (distributionModal) {
+      sheetTranslateY.value = withTiming(0, { duration: 300 });
+    }
+  }, [distributionModal, sheetTranslateY]);
+
+  const sheetAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
 
   const selStartHour = useSharedValue(0);
   const selEndHour = useSharedValue(0);
@@ -319,6 +354,91 @@ export default function TripDetailScreen() {
     .filter((i) => !i.startTime || parseTime(i.startTime) == null)
     .sort((a, b) => a.order - b.order);
 
+  const calendarSelectedDay =
+    calendarSelectedDayIndex !== null ? days[calendarSelectedDayIndex] : null;
+  const calendarDayItems = (calendarSelectedDay?.items ?? []).filter(
+    (i) => i.type !== "accommodation"
+  );
+
+  const renderMonthCalendar = () => {
+    if (!trip.startDate || !trip.endDate) return null;
+    const tripStart = new Date(trip.startDate);
+    const tripEnd = new Date(trip.endDate);
+
+    const months: { year: number; month: number }[] = [];
+    const cur = new Date(tripStart.getFullYear(), tripStart.getMonth(), 1);
+    const endMonth = new Date(tripEnd.getFullYear(), tripEnd.getMonth(), 1);
+    while (cur <= endMonth) {
+      months.push({ year: cur.getFullYear(), month: cur.getMonth() });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+
+    return months.map(({ year, month }) => {
+      const lastDay = new Date(year, month + 1, 0);
+      const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7;
+
+      const cells: (number | null)[] = [];
+      for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+      for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d);
+      while (cells.length % 7 !== 0) cells.push(null);
+
+      const weeks: (number | null)[][] = [];
+      for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+      return (
+        <View key={`${year}-${month}`} style={styles.calendarMonth}>
+          <Text style={styles.calendarMonthLabel}>
+            {FRENCH_MONTH_NAMES[month]} {year}
+          </Text>
+          <View style={styles.calendarDayNamesRow}>
+            {FRENCH_DAY_NAMES.map((n) => (
+              <Text key={n} style={styles.calendarDayName}>
+                {n}
+              </Text>
+            ))}
+          </View>
+          {weeks.map((week, wi) => (
+            <View key={wi} style={styles.calendarWeekRow}>
+              {week.map((dayNum, di) => {
+                if (!dayNum) return <View key={di} style={styles.calendarDayCell} />;
+                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                const dayIndex = days.findIndex((d) => d.date?.startsWith(dateStr));
+                const isTripDay = dayIndex !== -1;
+                const hasItems = isTripDay && (days[dayIndex].items ?? []).length > 0;
+                const isSelected = dayIndex === calendarSelectedDayIndex;
+                return (
+                  <Pressable
+                    key={di}
+                    style={[
+                      styles.calendarDayCell,
+                      isTripDay && styles.calendarTripDay,
+                      isSelected && styles.calendarSelectedDay,
+                    ]}
+                    onPress={() =>
+                      isTripDay && setCalendarSelectedDayIndex(isSelected ? null : dayIndex)
+                    }
+                    disabled={!isTripDay}
+                  >
+                    <Text
+                      style={[
+                        styles.calendarDayNum,
+                        !isTripDay && styles.calendarDayNumDisabled,
+                        isSelected && styles.calendarDayNumSelected,
+                      ]}
+                    >
+                      {dayNum}
+                    </Text>
+                    {hasItems && !isSelected && <View style={styles.calendarDot} />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      );
+    });
+  };
+
   return (
     <>
       <Stack.Screen
@@ -358,7 +478,28 @@ export default function TripDetailScreen() {
           </Text>
         </View>
 
-        {viewMode !== "organize" && (
+        {/* Sélecteur de vue — au-dessus du carrousel */}
+        <View style={styles.viewToggle}>
+          {(["timeline", "calendar", "organize"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => setViewMode(mode)}
+              style={[styles.toggleBtn, viewMode === mode && styles.toggleBtnActive]}
+            >
+              <Text style={[styles.toggleBtnText, viewMode === mode && styles.toggleBtnTextActive]}>
+                {mode === "timeline" ? "Jours" : mode === "calendar" ? "Calendrier" : "Idées"}
+              </Text>
+              {mode === "organize" && (trip.items ?? []).length > 0 && viewMode !== "organize" && (
+                <View style={styles.ideaBadge}>
+                  <Text style={styles.ideaBadgeText}>{(trip.items ?? []).length}</Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Carrousel de jours — uniquement en vue timeline */}
+        {viewMode === "timeline" && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -388,26 +529,8 @@ export default function TripDetailScreen() {
           </ScrollView>
         )}
 
-        <View style={styles.viewToggle}>
-          {(["timeline", "calendar", "organize"] as const).map((mode) => (
-            <Pressable
-              key={mode}
-              onPress={() => setViewMode(mode)}
-              style={[styles.toggleBtn, viewMode === mode && styles.toggleBtnActive]}
-            >
-              <Text style={[styles.toggleBtnText, viewMode === mode && styles.toggleBtnTextActive]}>
-                {mode === "timeline" ? "Timeline" : mode === "calendar" ? "Calendrier" : "Idées"}
-              </Text>
-              {mode === "organize" && (trip.items ?? []).length > 0 && viewMode !== "organize" && (
-                <View style={styles.ideaBadge}>
-                  <Text style={styles.ideaBadgeText}>{(trip.items ?? []).length}</Text>
-                </View>
-              )}
-            </Pressable>
-          ))}
-        </View>
-
-        {viewMode !== "organize" && uniqueAccommodations.length > 0 && (
+        {/* Hébergement actif — uniquement en vue timeline */}
+        {viewMode === "timeline" && uniqueAccommodations.length > 0 && (
           <View style={styles.accommodationSection}>
             {uniqueAccommodations.map((acc) => (
               <AccommodationCard
@@ -429,6 +552,141 @@ export default function TripDetailScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.rose} />
           }
         >
+          {/* TIMELINE : grille horaire + items non planifiés */}
+          {viewMode === "timeline" && (
+            <>
+              {scheduledItems.length === 0 && unscheduledItems.length === 0 && (
+                <Text style={styles.emptyText}>Aucun événement pour ce jour</Text>
+              )}
+              <View
+                style={styles.timelineGrid}
+                onTouchStart={(e) => {
+                  touchStartTime.current = Date.now();
+                  touchStartY.current = e.nativeEvent.locationY;
+                }}
+                {...panResponder.panHandlers}
+              >
+                {HOURS.map((hour) => (
+                  <View
+                    key={hour}
+                    style={[styles.hourRow, { top: (hour - START_HOUR) * HOUR_HEIGHT }]}
+                    pointerEvents="none"
+                  >
+                    <Text style={styles.hourLabel}>{String(hour).padStart(2, "0")}:00</Text>
+                    <View style={styles.hourSlot}>
+                      <View style={styles.hourLine} />
+                    </View>
+                  </View>
+                ))}
+
+                <Animated.View
+                  style={[styles.selectionOverlay, selectionAnimStyle]}
+                  pointerEvents="none"
+                >
+                  <View style={styles.selectionContent}>
+                    <AnimatedTextInput
+                      editable={false}
+                      animatedProps={selTimeLabelProps}
+                      style={styles.selectionHint}
+                    />
+                  </View>
+                </Animated.View>
+
+                {scheduledItems.map((item) => {
+                  const pos = getItemPosition(item);
+                  if (!pos) return null;
+                  return (
+                    <DraggableTimelineItem
+                      key={item.id}
+                      item={item}
+                      pos={pos}
+                      draggedItemId={draggedItemId}
+                      dragDeltaY={dragDeltaY}
+                      onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                      onDelete={() => deleteItem(item.id)}
+                    />
+                  );
+                })}
+
+                {scheduledItems.map((item, index) => {
+                  if (index === 0) return null;
+                  const prev = scheduledItems[index - 1];
+                  if (!prev.location || !item.location) return null;
+                  const prevPos = getItemPosition(prev);
+                  const currPos = getItemPosition(item);
+                  if (!prevPos || !currPos) return null;
+                  const gapTop = prevPos.top + prevPos.height;
+                  const gapHeight = currPos.top - gapTop;
+                  if (gapHeight < 24) return null;
+                  return (
+                    <View
+                      key={`travel-${prev.id}-${item.id}`}
+                      style={[styles.travelContainer, { top: gapTop, height: gapHeight }]}
+                    >
+                      <TravelIndicator
+                        originLocation={prev.location}
+                        destinationLocation={item.location}
+                      />
+                    </View>
+                  );
+                })}
+
+                <View style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }} />
+              </View>
+
+              {unscheduledItems.length > 0 && (
+                <View style={styles.unscheduledBelowGrid}>
+                  <Text style={styles.unscheduledTitle}>Non planifié</Text>
+                  <DraggableItemList
+                    key={currentDay?.id}
+                    items={unscheduledItems}
+                    onReorder={(reordered) => {
+                      const orderedItems = reordered.map((item, index) => ({
+                        id: item.id,
+                        order: index,
+                      }));
+                      reorderItems(currentDay!.id, orderedItems);
+                    }}
+                    onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                    onDeleteItem={(item) => deleteItem(item.id)}
+                    onDragStateChange={setScrollLocked}
+                  />
+                </View>
+              )}
+            </>
+          )}
+
+          {/* CALENDRIER : vue mensuelle */}
+          {viewMode === "calendar" && (
+            <View style={styles.calendarContainer}>
+              {renderMonthCalendar()}
+
+              {calendarSelectedDay && (
+                <View style={styles.calendarSelectedPanel}>
+                  <Text style={styles.calendarSelectedPanelTitle}>
+                    {formatDayLabel(calendarSelectedDay.date).dayName}{" "}
+                    {formatDayLabel(calendarSelectedDay.date).dayNum}
+                  </Text>
+                  {calendarDayItems.length === 0 ? (
+                    <Text style={styles.calendarEmptyDay}>Aucun événement</Text>
+                  ) : (
+                    <View style={styles.calendarDayItemsList}>
+                      {calendarDayItems.map((item) => (
+                        <TimelineBlock
+                          key={item.id}
+                          item={item}
+                          onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                          onDelete={() => deleteItem(item.id)}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* IDÉES : items non planifiés du voyage */}
           {viewMode === "organize" && (
             <View style={styles.organizeContainer}>
               <View style={styles.organizeHeader}>
@@ -445,6 +703,7 @@ export default function TripDetailScreen() {
                     onPress={() => {
                       const plan = distributeIdeas(trip.items ?? [], days);
                       setDistributionPlan(plan);
+                      sheetTranslateY.value = 600;
                       setDistributionModal(true);
                     }}
                     style={styles.distributeBtn}
@@ -477,124 +736,9 @@ export default function TripDetailScreen() {
               )}
             </View>
           )}
-
-          {viewMode === "timeline" && (
-            <View style={styles.timelineList}>
-              {scheduledItems.length === 0 && unscheduledItems.length === 0 && (
-                <Text style={styles.emptyText}>Aucun événement pour ce jour</Text>
-              )}
-              {scheduledItems.map((item) => (
-                <TimelineBlock
-                  key={item.id}
-                  item={item}
-                  onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                  onDelete={() => deleteItem(item.id)}
-                />
-              ))}
-              {unscheduledItems.length > 0 && (
-                <View style={scheduledItems.length > 0 ? styles.unscheduledSection : undefined}>
-                  {scheduledItems.length > 0 && (
-                    <Text style={styles.unscheduledTitle}>Non planifié</Text>
-                  )}
-                  <DraggableItemList
-                    key={currentDay?.id}
-                    items={unscheduledItems}
-                    onReorder={(reordered) => {
-                      const orderedItems = reordered.map((item, index) => ({
-                        id: item.id,
-                        order: index,
-                      }));
-                      reorderItems(currentDay!.id, orderedItems);
-                    }}
-                    onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                    onDeleteItem={(item) => deleteItem(item.id)}
-                    onDragStateChange={setScrollLocked}
-                  />
-                </View>
-              )}
-            </View>
-          )}
-
-          {viewMode === "calendar" && (
-            <View
-              style={styles.timelineGrid}
-              onTouchStart={(e) => {
-                touchStartTime.current = Date.now();
-                touchStartY.current = e.nativeEvent.locationY;
-              }}
-              {...panResponder.panHandlers}
-            >
-              {HOURS.map((hour) => (
-                <View
-                  key={hour}
-                  style={[styles.hourRow, { top: (hour - START_HOUR) * HOUR_HEIGHT }]}
-                  pointerEvents="none"
-                >
-                  <Text style={styles.hourLabel}>{String(hour).padStart(2, "0")}:00</Text>
-                  <View style={styles.hourSlot}>
-                    <View style={styles.hourLine} />
-                  </View>
-                </View>
-              ))}
-
-              <Animated.View
-                style={[styles.selectionOverlay, selectionAnimStyle]}
-                pointerEvents="none"
-              >
-                <View style={styles.selectionContent}>
-                  <AnimatedTextInput
-                    editable={false}
-                    animatedProps={selTimeLabelProps}
-                    style={styles.selectionHint}
-                  />
-                </View>
-              </Animated.View>
-
-              {scheduledItems.map((item) => {
-                const pos = getItemPosition(item);
-                if (!pos) return null;
-                return (
-                  <DraggableTimelineItem
-                    key={item.id}
-                    item={item}
-                    pos={pos}
-                    draggedItemId={draggedItemId}
-                    dragDeltaY={dragDeltaY}
-                    onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                    onDelete={() => deleteItem(item.id)}
-                  />
-                );
-              })}
-
-              {scheduledItems.map((item, index) => {
-                if (index === 0) return null;
-                const prev = scheduledItems[index - 1];
-                if (!prev.location || !item.location) return null;
-                const prevPos = getItemPosition(prev);
-                const currPos = getItemPosition(item);
-                if (!prevPos || !currPos) return null;
-                const gapTop = prevPos.top + prevPos.height;
-                const gapHeight = currPos.top - gapTop;
-                if (gapHeight < 24) return null;
-                return (
-                  <View
-                    key={`travel-${prev.id}-${item.id}`}
-                    style={[styles.travelContainer, { top: gapTop, height: gapHeight }]}
-                  >
-                    <TravelIndicator
-                      originLocation={prev.location}
-                      destinationLocation={item.location}
-                    />
-                  </View>
-                );
-              })}
-
-              <View style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }} />
-            </View>
-          )}
         </ScrollView>
 
-        {(viewMode === "organize" ? true : !!currentDay) && (
+        {(viewMode === "organize" || (viewMode === "timeline" && !!currentDay)) && (
           <AnimatedPressable
             onPress={() => {
               if (viewMode === "organize") {
@@ -619,14 +763,14 @@ export default function TripDetailScreen() {
         <Modal
           visible={distributionModal}
           transparent
-          animationType="slide"
-          onRequestClose={() => setDistributionModal(false)}
+          animationType="none"
+          onRequestClose={closeDistributionModal}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalSheet}>
+            <Animated.View style={[styles.modalSheet, sheetAnimStyle]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Répartition proposée</Text>
-                <Pressable onPress={() => setDistributionModal(false)} hitSlop={12}>
+                <Pressable onPress={closeDistributionModal} hitSlop={12}>
                   <X size={22} color={colors.black} />
                 </Pressable>
               </View>
@@ -663,15 +807,12 @@ export default function TripDetailScreen() {
                 })}
               </ScrollView>
               <View style={styles.modalFooter}>
-                <Pressable
-                  onPress={() => setDistributionModal(false)}
-                  style={styles.modalCancelBtn}
-                >
+                <Pressable onPress={closeDistributionModal} style={styles.modalCancelBtn}>
                   <Text style={styles.modalCancelText}>Annuler</Text>
                 </Pressable>
                 <Pressable
                   onPress={async () => {
-                    setDistributionModal(false);
+                    closeDistributionModal();
                     setIsLoading(true);
                     try {
                       await Promise.all(
@@ -688,7 +829,7 @@ export default function TripDetailScreen() {
                   <Text style={styles.modalConfirmText}>Confirmer</Text>
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </View>
@@ -733,6 +874,25 @@ const makeStyles = (c: ThemeColors) =>
       borderRadius: radius.full,
     },
     deleteBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.red },
+    viewToggle: {
+      flexDirection: "row",
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      backgroundColor: c.grayLight,
+      borderRadius: radius.full,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: c.grayBorder,
+    },
+    toggleBtn: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.full,
+      alignItems: "center",
+    },
+    toggleBtnActive: { backgroundColor: c.white, ...shadow.sm },
+    toggleBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.grayMuted },
+    toggleBtnTextActive: { color: c.black },
     dayScroll: { maxHeight: 90, marginTop: spacing.md },
     dayScrollContent: { paddingHorizontal: spacing.lg, gap: DAY_GAP, alignItems: "center" },
     dayPill: {
@@ -769,7 +929,7 @@ const makeStyles = (c: ThemeColors) =>
     accommodationSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
     timelineScroll: { flex: 1, marginTop: spacing.sm },
     timelineContent: { paddingBottom: 100 },
-    timelineGrid: { position: "relative", paddingTop: 8 },
+    timelineGrid: { position: "relative", paddingTop: 8, marginTop: spacing.md },
     hourRow: {
       position: "absolute",
       left: 0,
@@ -812,26 +972,6 @@ const makeStyles = (c: ThemeColors) =>
       padding: 0,
       width: "100%",
     },
-    viewToggle: {
-      flexDirection: "row",
-      marginHorizontal: spacing.lg,
-      marginTop: spacing.md,
-      backgroundColor: c.grayLight,
-      borderRadius: radius.full,
-      padding: 3,
-      borderWidth: 1,
-      borderColor: c.grayBorder,
-    },
-    toggleBtn: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.full,
-      alignItems: "center",
-    },
-    toggleBtnActive: { backgroundColor: c.white, ...shadow.sm },
-    toggleBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.grayMuted },
-    toggleBtnTextActive: { color: c.black },
-    timelineList: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
     emptyText: {
       fontFamily: fonts.regular,
       fontSize: fontSize.sm,
@@ -839,7 +979,11 @@ const makeStyles = (c: ThemeColors) =>
       textAlign: "center",
       marginTop: spacing.xxl,
     },
-    unscheduledSection: { marginTop: spacing.lg, paddingHorizontal: spacing.lg },
+    unscheduledBelowGrid: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+    },
     unscheduledTitle: {
       fontFamily: fonts.semiBold,
       fontSize: fontSize.sm,
@@ -848,6 +992,76 @@ const makeStyles = (c: ThemeColors) =>
       letterSpacing: 1,
       marginBottom: spacing.md,
     },
+    travelContainer: {
+      position: "absolute",
+      left: TIMELINE_LEFT + spacing.sm,
+      right: spacing.lg,
+      justifyContent: "center",
+      zIndex: 1,
+    },
+    // Calendrier mensuel / hebdomadaire
+    calendarContainer: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    calendarMonth: { marginBottom: spacing.lg },
+    calendarMonthLabel: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.md,
+      color: c.black,
+      textTransform: "capitalize",
+      marginBottom: spacing.sm,
+    },
+    calendarDayNamesRow: { flexDirection: "row", marginBottom: spacing.xs },
+    calendarDayName: {
+      flex: 1,
+      textAlign: "center",
+      fontFamily: fonts.medium,
+      fontSize: fontSize.xs,
+      color: c.grayMuted,
+    },
+    calendarWeekRow: { flexDirection: "row", marginBottom: 4 },
+    calendarDayCell: {
+      flex: 1,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      margin: 2,
+    },
+    calendarTripDay: { backgroundColor: c.roseMuted },
+    calendarSelectedDay: { backgroundColor: c.rose },
+    calendarDayNum: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.black },
+    calendarDayNumDisabled: { fontFamily: fonts.regular, color: c.grayMuted },
+    calendarDayNumSelected: { color: "#FFFFFF" },
+    calendarDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: c.rose,
+      marginTop: 2,
+    },
+    calendarSelectedPanel: {
+      marginTop: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: c.grayBorder,
+      paddingTop: spacing.lg,
+    },
+    calendarSelectedPanelTitle: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.md,
+      color: c.black,
+      textTransform: "capitalize",
+      marginBottom: spacing.md,
+    },
+    calendarEmptyDay: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+      textAlign: "center",
+      marginTop: spacing.md,
+    },
+    calendarDayItemsList: { gap: spacing.sm },
     fab: {
       position: "absolute",
       bottom: 32,
@@ -910,13 +1124,6 @@ const makeStyles = (c: ThemeColors) =>
       lineHeight: 22,
     },
     ideaList: { gap: spacing.sm },
-    travelContainer: {
-      position: "absolute",
-      left: TIMELINE_LEFT + spacing.sm,
-      right: spacing.lg,
-      justifyContent: "center",
-      zIndex: 1,
-    },
     modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
     modalSheet: {
       backgroundColor: c.white,

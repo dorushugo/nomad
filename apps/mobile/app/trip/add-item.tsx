@@ -599,7 +599,23 @@ export default function AddItemScreen() {
                   </Pressable>
                 </>
               ) : (
-                <Pressable onPress={() => setShowTime(true)} style={styles.addTimeBtn}>
+                <Pressable
+                  onPress={() => {
+                    // Sync state with what the picker will display (current time
+                    // rounded to 15 min) so that saving without touching the
+                    // picker still produces a valid startTime.
+                    if (!startTime) {
+                      const now = new Date();
+                      const totalMin = now.getHours() * 60 + now.getMinutes();
+                      const snapped = Math.round(totalMin / 15) * 15;
+                      const h = Math.floor(snapped / 60) % 24;
+                      const m = snapped % 60;
+                      setStartTime(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                    }
+                    setShowTime(true);
+                  }}
+                  style={styles.addTimeBtn}
+                >
                   <Text style={styles.addTimeBtnText}>+ Ajouter un horaire</Text>
                 </Pressable>
               )}

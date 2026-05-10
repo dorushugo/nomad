@@ -62,6 +62,12 @@ interface TripState {
   deleteDocument: (documentId: string) => Promise<void>;
 }
 
+// Per-trip generation counter: incremented each time fetchTrip is called for a
+// given trip. When the response arrives, we skip the state update if a newer
+// call has already been dispatched (prevents stale responses from overwriting
+// optimistic or more-recent data).
+const fetchTripGen = new Map<string, number>();
+
 export const useTripStore = create<TripState>()(
   persist(
     (set, get) => ({
@@ -82,8 +88,11 @@ export const useTripStore = create<TripState>()(
       },
 
       fetchTrip: async (id) => {
+        const gen = (fetchTripGen.get(id) ?? 0) + 1;
+        fetchTripGen.set(id, gen);
         try {
           const trip = normalizeTrip(await tripsApi.get(id));
+          if (fetchTripGen.get(id) !== gen) return trip;
           set((state) => ({
             trips: state.trips.some((t) => t.id === id)
               ? state.trips.map((t) => (t.id === id ? trip : t))
@@ -91,6 +100,7 @@ export const useTripStore = create<TripState>()(
           }));
           return trip;
         } catch (err) {
+          if (fetchTripGen.get(id) !== gen) throw err;
           set({ error: errorMessage(err) });
           throw err;
         }
