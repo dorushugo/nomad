@@ -1,5 +1,5 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Plus, Shuffle, X } from "lucide-react-native";
+import { Clock, Eye, FileText, MapPin, Pencil, Plus, Shuffle, Train, X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -86,7 +86,29 @@ export default function TripDetailScreen() {
   const [calendarSelectedDayIndex, setCalendarSelectedDayIndex] = useState<number | null>(null);
   const [distributionModal, setDistributionModal] = useState(false);
   const [distributionPlan, setDistributionPlan] = useState<DistributionAssignment[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [detailItem, setDetailItem] = useState<Item | null>(null);
+  const detailSheetY = useSharedValue(600);
   const sheetTranslateY = useSharedValue(600);
+
+  const openDetailSheet = useCallback(
+    (item: Item) => {
+      setDetailItem(item);
+      detailSheetY.value = 600;
+      detailSheetY.value = withTiming(0, { duration: 300 });
+    },
+    [detailSheetY]
+  );
+
+  const closeDetailSheet = useCallback(() => {
+    detailSheetY.value = withTiming(600, { duration: 250 }, (finished) => {
+      if (finished) runOnJS(setDetailItem)(null);
+    });
+  }, [detailSheetY]);
+
+  const detailSheetAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: detailSheetY.value }],
+  }));
 
   const closeDistributionModal = useCallback(() => {
     sheetTranslateY.value = withTiming(600, { duration: 250 }, (finished) => {
@@ -128,6 +150,11 @@ export default function TripDetailScreen() {
     transform: [{ scale: fabScale.value }],
   }));
 
+  const modeFabScale = useSharedValue(1);
+  const modeFabAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: modeFabScale.value }],
+  }));
+
   useFocusEffect(
     useCallback(() => {
       if (id) fetchTrip(id).catch(() => {});
@@ -165,6 +192,9 @@ export default function TripDetailScreen() {
   const dragAnchorHour = useRef(0);
   const LONG_PRESS_DELAY = 150;
 
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
+
   const navigateToAddItem = useCallback((startH: number, endH: number) => {
     const day = currentDayRef.current;
     if (day) {
@@ -178,6 +208,7 @@ export default function TripDetailScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (evt) => {
+        if (!editModeRef.current) return false;
         const holdDuration = Date.now() - touchStartTime.current;
         const isInContentZone = evt.nativeEvent.locationX > TIMELINE_LEFT;
         return isInContentZone && holdDuration >= LONG_PRESS_DELAY;
@@ -480,7 +511,10 @@ export default function TripDetailScreen() {
 
         {/* Sélecteur de vue — au-dessus du carrousel */}
         <View style={styles.viewToggle}>
-          {(["timeline", "calendar", "organize"] as const).map((mode) => (
+          {(editMode
+            ? (["timeline", "calendar", "organize"] as const)
+            : (["timeline", "calendar"] as const)
+          ).map((mode) => (
             <Pressable
               key={mode}
               onPress={() => setViewMode(mode)}
@@ -536,7 +570,9 @@ export default function TripDetailScreen() {
               <AccommodationCard
                 key={acc.id}
                 item={acc}
-                onPress={() => router.push(`/trip/edit-item?itemId=${acc.id}`)}
+                onPress={() =>
+                  editMode ? router.push(`/trip/edit-item?itemId=${acc.id}`) : openDetailSheet(acc)
+                }
               />
             ))}
           </View>
@@ -602,8 +638,12 @@ export default function TripDetailScreen() {
                       pos={pos}
                       draggedItemId={draggedItemId}
                       dragDeltaY={dragDeltaY}
-                      onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                      onDelete={() => deleteItem(item.id)}
+                      onPress={() =>
+                        editMode
+                          ? router.push(`/trip/edit-item?itemId=${item.id}`)
+                          : openDetailSheet(item)
+                      }
+                      onDelete={editMode ? () => deleteItem(item.id) : undefined}
                     />
                   );
                 })}
@@ -637,20 +677,32 @@ export default function TripDetailScreen() {
               {unscheduledItems.length > 0 && (
                 <View style={styles.unscheduledBelowGrid}>
                   <Text style={styles.unscheduledTitle}>Non planifié</Text>
-                  <DraggableItemList
-                    key={currentDay?.id}
-                    items={unscheduledItems}
-                    onReorder={(reordered) => {
-                      const orderedItems = reordered.map((item, index) => ({
-                        id: item.id,
-                        order: index,
-                      }));
-                      reorderItems(currentDay!.id, orderedItems);
-                    }}
-                    onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                    onDeleteItem={(item) => deleteItem(item.id)}
-                    onDragStateChange={setScrollLocked}
-                  />
+                  {editMode ? (
+                    <DraggableItemList
+                      key={currentDay?.id}
+                      items={unscheduledItems}
+                      onReorder={(reordered) => {
+                        const orderedItems = reordered.map((item, index) => ({
+                          id: item.id,
+                          order: index,
+                        }));
+                        reorderItems(currentDay!.id, orderedItems);
+                      }}
+                      onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                      onDeleteItem={(item) => deleteItem(item.id)}
+                      onDragStateChange={setScrollLocked}
+                    />
+                  ) : (
+                    <View style={{ gap: spacing.sm }}>
+                      {unscheduledItems.map((item) => (
+                        <TimelineBlock
+                          key={item.id}
+                          item={item}
+                          onPress={() => openDetailSheet(item)}
+                        />
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
             </>
@@ -675,8 +727,12 @@ export default function TripDetailScreen() {
                         <TimelineBlock
                           key={item.id}
                           item={item}
-                          onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
-                          onDelete={() => deleteItem(item.id)}
+                          onPress={() =>
+                            editMode
+                              ? router.push(`/trip/edit-item?itemId=${item.id}`)
+                              : openDetailSheet(item)
+                          }
+                          onDelete={editMode ? () => deleteItem(item.id) : undefined}
                         />
                       ))}
                     </View>
@@ -738,7 +794,8 @@ export default function TripDetailScreen() {
           )}
         </ScrollView>
 
-        {(viewMode === "organize" || (viewMode === "timeline" && !!currentDay)) && (
+        {/* FAB "+" — visible uniquement en mode édition */}
+        {editMode && (viewMode === "organize" || (viewMode === "timeline" && !!currentDay)) && (
           <AnimatedPressable
             onPress={() => {
               if (viewMode === "organize") {
@@ -753,12 +810,65 @@ export default function TripDetailScreen() {
             onPressOut={() => {
               fabScale.value = withSpring(1, { damping: 12, stiffness: 300 });
             }}
-            style={[styles.fab, fabAnimStyle]}
+            style={[styles.fab, styles.fabAdd, fabAnimStyle]}
           >
             <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
           </AnimatedPressable>
         )}
+
+        {/* FAB mode toggle — toujours visible */}
+        <AnimatedPressable
+          onPress={() => {
+            const next = !editMode;
+            setEditMode(next);
+            if (!next && viewMode === "organize") {
+              setViewMode("timeline");
+            }
+          }}
+          onPressIn={() => {
+            modeFabScale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+          }}
+          onPressOut={() => {
+            modeFabScale.value = withSpring(1, { damping: 12, stiffness: 300 });
+          }}
+          style={[styles.fab, styles.fabMode, modeFabAnimStyle]}
+        >
+          {editMode ? (
+            <Eye size={24} color="#FFFFFF" strokeWidth={2.5} />
+          ) : (
+            <Pencil size={24} color="#FFFFFF" strokeWidth={2.5} />
+          )}
+        </AnimatedPressable>
         <LoadingOverlay visible={isLoading} />
+
+        {/* Bottom sheet détail item — mode lecture */}
+        <Modal
+          visible={detailItem !== null}
+          transparent
+          animationType="none"
+          onRequestClose={closeDetailSheet}
+        >
+          <Pressable style={styles.modalOverlay} onPress={closeDetailSheet}>
+            <Animated.View style={[styles.detailSheet, detailSheetAnimStyle]}>
+              <Pressable>
+                {detailItem && (
+                  <DetailSheetContent
+                    item={detailItem}
+                    colors={colors}
+                    onEdit={() => {
+                      closeDetailSheet();
+                      setTimeout(() => {
+                        setEditMode(true);
+                        router.push(`/trip/edit-item?itemId=${detailItem.id}`);
+                      }, 300);
+                    }}
+                    onClose={closeDetailSheet}
+                  />
+                )}
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Modal>
 
         <Modal
           visible={distributionModal}
@@ -836,6 +946,176 @@ export default function TripDetailScreen() {
     </>
   );
 }
+
+function getTransportLabel(mode?: string): string {
+  const labels: Record<string, string> = {
+    avion: "Avion",
+    train: "Train",
+    voiture: "Voiture",
+    bus: "Bus",
+    metro: "Métro",
+    velo: "Vélo",
+    a_pied: "À pied",
+    autre: "Autre",
+  };
+  return mode ? (labels[mode] ?? mode) : "";
+}
+
+function DetailSheetContent({
+  item,
+  colors,
+  onEdit,
+  onClose,
+}: {
+  item: Item;
+  colors: ThemeColors;
+  onEdit: () => void;
+  onClose: () => void;
+}) {
+  const s = makeDetailStyles(colors);
+  const typeLabels: Record<string, string> = {
+    activity: "Activité",
+    accommodation: "Hébergement",
+    transport: "Transport",
+    note: "Note",
+  };
+
+  return (
+    <View style={s.container}>
+      <View style={s.header}>
+        <View style={s.headerLeft}>
+          <Text style={s.typeLabel}>{typeLabels[item.type] ?? item.type}</Text>
+          <Text style={s.title}>{item.title}</Text>
+        </View>
+        <Pressable onPress={onClose} hitSlop={12}>
+          <X size={22} color={colors.black} />
+        </Pressable>
+      </View>
+
+      {(item.startTime || item.endTime) && (
+        <View style={s.row}>
+          <Clock size={16} color={colors.gray} />
+          <Text style={s.rowText}>
+            {item.startTime}
+            {item.endTime ? ` — ${item.endTime}` : ""}
+          </Text>
+        </View>
+      )}
+
+      {item.location && (
+        <View style={s.row}>
+          <MapPin size={16} color={colors.gray} />
+          <Text style={s.rowText}>{item.location}</Text>
+        </View>
+      )}
+
+      {item.arrivalLocation && (
+        <View style={s.row}>
+          <MapPin size={16} color={colors.rose} />
+          <Text style={s.rowText}>{item.arrivalLocation}</Text>
+        </View>
+      )}
+
+      {item.transportMode && (
+        <View style={s.row}>
+          <Train size={16} color={colors.gray} />
+          <Text style={s.rowText}>{getTransportLabel(item.transportMode)}</Text>
+        </View>
+      )}
+
+      {item.price != null && item.price > 0 && (
+        <View style={s.row}>
+          <Text style={s.priceIcon}>€</Text>
+          <Text style={s.rowText}>{item.price} €</Text>
+        </View>
+      )}
+
+      {item.notes ? (
+        <View style={s.notesSection}>
+          <Text style={s.notesLabel}>Notes</Text>
+          <Text style={s.notesText}>{item.notes}</Text>
+        </View>
+      ) : null}
+
+      {item.documents && item.documents.length > 0 && (
+        <View style={s.row}>
+          <FileText size={16} color={colors.gray} />
+          <Text style={s.rowText}>
+            {item.documents.length} document{item.documents.length > 1 ? "s" : ""}
+          </Text>
+        </View>
+      )}
+
+      <Pressable onPress={onEdit} style={s.editBtn}>
+        <Pencil size={16} color="#FFFFFF" />
+        <Text style={s.editBtnText}>Modifier</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const makeDetailStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: { paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: 40 },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: spacing.lg,
+    },
+    headerLeft: { flex: 1, marginRight: spacing.md },
+    typeLabel: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.xxs,
+      color: c.rose,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      marginBottom: 4,
+    },
+    title: { fontFamily: fonts.bold, fontSize: fontSize.xl, color: c.black },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    rowText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.black, flex: 1 },
+    priceIcon: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.gray,
+      width: 16,
+      textAlign: "center",
+    },
+    notesSection: { marginBottom: spacing.md },
+    notesLabel: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.xs,
+      color: c.grayMuted,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: spacing.xs,
+    },
+    notesText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.black,
+      lineHeight: 22,
+    },
+    editBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+      backgroundColor: c.rose,
+      borderRadius: radius.full,
+      paddingVertical: 14,
+      marginTop: spacing.lg,
+      ...shadow.md,
+      shadowColor: c.rose,
+    },
+    editBtnText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: "#FFFFFF" },
+  });
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -1064,16 +1344,30 @@ const makeStyles = (c: ThemeColors) =>
     calendarDayItemsList: { gap: spacing.sm },
     fab: {
       position: "absolute",
-      bottom: 32,
-      right: spacing.lg,
-      width: 60,
-      height: 60,
+      width: 56,
+      height: 56,
       borderRadius: radius.full,
-      backgroundColor: c.rose,
       alignItems: "center",
       justifyContent: "center",
       ...shadow.lg,
+    },
+    fabMode: {
+      bottom: 32,
+      right: spacing.lg,
+      backgroundColor: c.rose,
       shadowColor: c.rose,
+    },
+    fabAdd: {
+      bottom: 100,
+      right: spacing.lg,
+      backgroundColor: c.black,
+      shadowColor: c.black,
+    },
+    detailSheet: {
+      backgroundColor: c.white,
+      borderTopLeftRadius: radius.xxl,
+      borderTopRightRadius: radius.xxl,
+      maxHeight: "75%",
     },
     ideaBadge: {
       position: "absolute",
