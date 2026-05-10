@@ -1,6 +1,30 @@
 export { lightColors as colors, lightColors, darkColors } from "./colors";
 export type { ThemeColors } from "./colors";
 
+// Apply an alpha channel to a hex color or pass-through for rgba/rgb. Use
+// for tinted backgrounds / overlays so callers don't hand-roll rgba strings
+// with the wrong opacity.
+export function withOpacity(color: string, alpha: number): string {
+  const a = Math.max(0, Math.min(1, alpha));
+  if (color.startsWith("#")) {
+    const hex = color.slice(1);
+    const full =
+      hex.length === 3
+        ? hex
+            .split("")
+            .map((c) => c + c)
+            .join("")
+        : hex;
+    const r = Number.parseInt(full.slice(0, 2), 16);
+    const g = Number.parseInt(full.slice(2, 4), 16);
+    const b = Number.parseInt(full.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+  // For rgb()/rgba()/named colors, fall back to the input — caller already
+  // supplied an alpha-aware value or expects no transformation.
+  return color;
+}
+
 export const spacing = {
   xxs: 2,
   xs: 4,

@@ -1,12 +1,8 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Hotel } from "lucide-react-native";
 import { Item } from "../stores/tripStore";
-import { fonts, fontSize, radius, spacing, shadow } from "../theme";
+import { fonts, fontSize, radius, spacing, shadow, withOpacity } from "../theme";
 import { useTheme } from "../hooks/useTheme";
 import type { ThemeColors } from "../theme";
 
@@ -42,8 +38,12 @@ export function AccommodationCard({ item, onPress }: AccommodationCardProps) {
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.98, { damping: 15, stiffness: 400 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
+      onPressIn={() => {
+        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+      }}
       style={[styles.card, pressStyle]}
     >
       <View style={styles.row}>
@@ -51,17 +51,17 @@ export function AccommodationCard({ item, onPress }: AccommodationCardProps) {
           <Hotel size={18} color={colors.blue} />
         </View>
         <View style={styles.content}>
-          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {item.title}
+          </Text>
           {item.location ? (
-            <Text style={styles.location} numberOfLines={1}>{item.location}</Text>
+            <Text style={styles.location} numberOfLines={1}>
+              {item.location}
+            </Text>
           ) : null}
-          {dateLabel ? (
-            <Text style={styles.dates}>{dateLabel}</Text>
-          ) : null}
+          {dateLabel ? <Text style={styles.dates}>{dateLabel}</Text> : null}
         </View>
-        {item.price != null && item.price > 0 && (
-          <Text style={styles.price}>{item.price}€</Text>
-        )}
+        {item.price != null && item.price > 0 && <Text style={styles.price}>{item.price}€</Text>}
       </View>
     </AnimatedPressable>
   );
@@ -70,7 +70,7 @@ export function AccommodationCard({ item, onPress }: AccommodationCardProps) {
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     card: {
-      backgroundColor: "rgba(66, 139, 255, 0.06)",
+      backgroundColor: withOpacity(c.blue, 0.06),
       borderRadius: radius.xl,
       borderLeftWidth: 4,
       borderLeftColor: c.blue,
@@ -80,13 +80,27 @@ const makeStyles = (c: ThemeColors) =>
     },
     row: { flexDirection: "row", alignItems: "center" },
     iconContainer: {
-      width: 40, height: 40, borderRadius: radius.md,
-      backgroundColor: "rgba(66, 139, 255, 0.08)",
-      alignItems: "center", justifyContent: "center", marginRight: spacing.md,
+      width: 40,
+      height: 40,
+      borderRadius: radius.md,
+      backgroundColor: withOpacity(c.blue, 0.08),
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: spacing.md,
     },
     content: { flex: 1 },
-    title: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: c.black, letterSpacing: -0.2 },
+    title: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.md,
+      color: c.black,
+      letterSpacing: -0.2,
+    },
     location: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: c.gray, marginTop: 2 },
     dates: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.blue, marginTop: 4 },
-    price: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.darkGray, marginLeft: spacing.sm },
+    price: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.darkGray,
+      marginLeft: spacing.sm,
+    },
   });

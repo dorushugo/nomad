@@ -9,9 +9,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { colors, fonts, fontSize, radius, spacing } from "../theme";
+import { debugError } from "../utils/logger";
 
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
-console.log("[PlacesAutocomplete] API_KEY loaded:", API_KEY ? `${API_KEY.slice(0, 10)}...` : "MISSING");
 
 interface Prediction {
   place_id: string;
@@ -33,6 +33,11 @@ interface PlacesAutocompleteProps {
   types?: string;
 }
 
+interface PlaceAddressComponent {
+  short_name: string;
+  types: string[];
+}
+
 function countryCodeToFlag(code: string): string {
   return [...code.toUpperCase()]
     .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
@@ -42,19 +47,14 @@ function countryCodeToFlag(code: string): string {
 async function fetchCountryFlag(placeId: string): Promise<string | null> {
   try {
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=address_components&language=fr&key=${API_KEY}`;
-    console.log("[PlacesAutocomplete] fetching place details for country detection");
     const res = await fetch(url);
     const json = await res.json();
-    const country = json.result?.address_components?.find((c: any) =>
+    const country = (json.result?.address_components ?? []).find((c: PlaceAddressComponent) =>
       c.types?.includes("country")
-    );
-    if (country?.short_name) {
-      const flag = countryCodeToFlag(country.short_name);
-      console.log("[PlacesAutocomplete] detected country:", country.short_name, "→", flag);
-      return flag;
-    }
+    ) as PlaceAddressComponent | undefined;
+    if (country?.short_name) return countryCodeToFlag(country.short_name);
   } catch (error) {
-    console.error("[PlacesAutocomplete] place details error:", error);
+    debugError("[PlacesAutocomplete] place details error:", error);
   }
   return null;
 }
@@ -81,37 +81,28 @@ export function PlacesAutocomplete({
     setShowResults(false);
   }, [types]);
 
-  const search = useCallback(async (text: string) => {
-    console.log("[PlacesAutocomplete] search() called with:", text);
-    if (text.length < 2) {
-      console.log("[PlacesAutocomplete] text too short, skipping");
-      setPredictions([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&types=${encodeURIComponent(types)}&language=fr&key=${API_KEY}`;
-      console.log("[PlacesAutocomplete] fetching URL:", url.replace(API_KEY || "", "***"));
-      const res = await fetch(url);
-      console.log("[PlacesAutocomplete] response status:", res.status);
-      const json = await res.json();
-      console.log("[PlacesAutocomplete] response body:", JSON.stringify(json).slice(0, 500));
-      if (json.predictions) {
-        console.log("[PlacesAutocomplete] got", json.predictions.length, "predictions");
-        setPredictions(json.predictions);
-      } else {
-        console.log("[PlacesAutocomplete] no predictions in response, status:", json.status, "error:", json.error_message);
+  const search = useCallback(
+    async (text: string) => {
+      if (text.length < 2) {
+        setPredictions([]);
+        return;
       }
-    } catch (error) {
-      console.error("[PlacesAutocomplete] fetch error:", error);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [types]);
+      setIsSearching(true);
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(text)}&types=${encodeURIComponent(types)}&language=fr&key=${API_KEY}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.predictions) setPredictions(json.predictions);
+      } catch (error) {
+        debugError("[PlacesAutocomplete] fetch error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [types]
+  );
 
   const handleChangeText = (text: string) => {
-    console.log("[PlacesAutocomplete] handleChangeText:", text);
     setQuery(text);
     setShowResults(true);
     onSelect(text);
@@ -123,7 +114,6 @@ export function PlacesAutocomplete({
   const handleSelect = async (prediction: Prediction) => {
     const { main_text, secondary_text } = prediction.structured_formatting;
     const display = secondary_text ? `${main_text}, ${secondary_text}` : main_text;
-    console.log("[PlacesAutocomplete] selected:", display);
     setQuery(display);
     onSelect(display);
     setPredictions([]);
@@ -141,7 +131,12 @@ export function PlacesAutocomplete({
   };
 
   return (
-    <View style={styles.wrapper} onLayout={(e) => { wrapperY.current = e.nativeEvent.layout.y; }}>
+    <View
+      style={styles.wrapper}
+      onLayout={(e) => {
+        wrapperY.current = e.nativeEvent.layout.y;
+      }}
+    >
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputRow}>
         <TextInput
@@ -150,16 +145,15 @@ export function PlacesAutocomplete({
           placeholderTextColor={colors.grayMuted}
           value={query}
           onChangeText={handleChangeText}
-          onFocus={() => { setShowResults(true); onInputFocus?.(wrapperY.current); }}
+          onFocus={() => {
+            setShowResults(true);
+            onInputFocus?.(wrapperY.current);
+          }}
           selectionColor={colors.rose}
           autoCorrect={false}
         />
         {isSearching && (
-          <ActivityIndicator
-            size="small"
-            color={colors.grayMuted}
-            style={styles.spinner}
-          />
+          <ActivityIndicator size="small" color={colors.grayMuted} style={styles.spinner} />
         )}
       </View>
 
@@ -171,13 +165,8 @@ export function PlacesAutocomplete({
             keyboardShouldPersistTaps="handled"
             scrollEnabled={false}
             renderItem={({ item }) => (
-              <Pressable
-                style={styles.row}
-                onPress={() => handleSelect(item)}
-              >
-                <Text style={styles.mainText}>
-                  {item.structured_formatting.main_text}
-                </Text>
+              <Pressable style={styles.row} onPress={() => handleSelect(item)}>
+                <Text style={styles.mainText}>{item.structured_formatting.main_text}</Text>
                 {item.structured_formatting.secondary_text ? (
                   <Text style={styles.secondaryText}>
                     {item.structured_formatting.secondary_text}
