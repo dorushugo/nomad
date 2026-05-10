@@ -6,8 +6,8 @@ import { signDocuments, signItemDocuments, signTripDocuments } from "../utils/su
 
 // Day generation: inclusive range from startDate to endDate, one Day per
 // calendar day. Uses local-day ticks (setDate increments by 1) so DST
-// transitions don't drop or duplicate days.
-function buildInitialDays(startDate: Date, endDate: Date): { date: Date }[] {
+// transitions don't drop or duplicate days. Exported for testing.
+export function buildInitialDays(startDate: Date, endDate: Date): { date: Date }[] {
   const days: { date: Date }[] = [];
   const current = new Date(startDate);
   while (current <= endDate) {
