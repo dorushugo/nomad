@@ -12,13 +12,17 @@ import { Link, router, Stack } from "expo-router";
 import { useAuthStore } from "../src/stores/authStore";
 import { Button } from "../src/components/Button";
 import { Input } from "../src/components/Input";
-import { colors, fonts, fontSize, spacing, radius } from "../src/theme";
+import { fonts, fontSize, spacing, radius } from "../src/theme";
+import { useTheme } from "../src/hooks/useTheme";
+import type { ThemeColors } from "../src/theme";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { register, isLoading } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -49,7 +53,6 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero */}
           <View style={styles.hero}>
             <View style={styles.logoContainer}>
               <Text style={styles.logoEmoji}>🌍</Text>
@@ -60,7 +63,6 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          {/* Form Card */}
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Crée ton compte</Text>
 
@@ -96,7 +98,6 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Déjà un compte ?</Text>
             <Link href="/login" asChild>
@@ -109,76 +110,77 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.grayLight,
-  },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: spacing.lg,
-  },
-  hero: {
-    alignItems: "center",
-    marginBottom: spacing.xl,
-  },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.xxl,
-    backgroundColor: colors.roseMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-  },
-  logoEmoji: {
-    fontSize: 32,
-  },
-  logo: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxxl,
-    color: colors.black,
-    letterSpacing: -1,
-  },
-  subtitle: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.gray,
-    marginTop: spacing.xs,
-  },
-  formCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xxl,
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 4,
-  },
-  formTitle: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxl,
-    color: colors.black,
-    marginBottom: spacing.lg,
-    letterSpacing: -0.5,
-  },
-  footer: {
-    alignItems: "center",
-    marginTop: spacing.xl,
-    gap: spacing.xs,
-  },
-  footerText: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.sm,
-    color: colors.gray,
-  },
-  link: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.rose,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.grayLight,
+    },
+    scroll: {
+      flexGrow: 1,
+      justifyContent: "center",
+      padding: spacing.lg,
+    },
+    hero: {
+      alignItems: "center",
+      marginBottom: spacing.xl,
+    },
+    logoContainer: {
+      width: 72,
+      height: 72,
+      borderRadius: radius.xxl,
+      backgroundColor: c.roseMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.md,
+    },
+    logoEmoji: {
+      fontSize: 32,
+    },
+    logo: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xxxl,
+      color: c.black,
+      letterSpacing: -1,
+    },
+    subtitle: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.md,
+      color: c.gray,
+      marginTop: spacing.xs,
+    },
+    formCard: {
+      backgroundColor: c.white,
+      borderRadius: radius.xxl,
+      padding: spacing.lg,
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.xl,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 20,
+      elevation: 4,
+    },
+    formTitle: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xxl,
+      color: c.black,
+      marginBottom: spacing.lg,
+      letterSpacing: -0.5,
+    },
+    footer: {
+      alignItems: "center",
+      marginTop: spacing.xl,
+      gap: spacing.xs,
+    },
+    footerText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.gray,
+    },
+    link: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.rose,
+    },
+  });

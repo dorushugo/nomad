@@ -1,15 +1,18 @@
-export const transportModes = [
-  { key: "avion", emoji: "✈️", label: "Avion" },
-  { key: "train", emoji: "🚆", label: "Train" },
-  { key: "voiture", emoji: "🚗", label: "Voiture" },
-  { key: "bus", emoji: "🚌", label: "Bus" },
-  { key: "metro", emoji: "🚇", label: "Métro" },
-  { key: "velo", emoji: "🚲", label: "Vélo" },
-  { key: "a_pied", emoji: "🚶", label: "À pied" },
-  { key: "autre", emoji: "📦", label: "Autre" },
-] as const;
+import { Plane, TrainFront, Car, Bus, TramFront, Bike, Footprints, Package } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 
-export type TransportMode = (typeof transportModes)[number]["key"];
+export type TransportMode = "avion" | "train" | "voiture" | "bus" | "metro" | "velo" | "a_pied" | "autre";
+
+export const transportModes: { key: TransportMode; icon: LucideIcon; label: string }[] = [
+  { key: "avion", icon: Plane, label: "Avion" },
+  { key: "train", icon: TrainFront, label: "Train" },
+  { key: "voiture", icon: Car, label: "Voiture" },
+  { key: "bus", icon: Bus, label: "Bus" },
+  { key: "metro", icon: TramFront, label: "Métro" },
+  { key: "velo", icon: Bike, label: "Vélo" },
+  { key: "a_pied", icon: Footprints, label: "À pied" },
+  { key: "autre", icon: Package, label: "Autre" },
+];
 
 const GROUND_MODES: TransportMode[] = ["voiture", "bus", "velo", "a_pied", "metro"];
 
@@ -17,8 +20,8 @@ export function shouldCalculateDuration(mode: string | undefined): boolean {
   return GROUND_MODES.includes(mode as TransportMode);
 }
 
-export function getTransportModeEmoji(mode: string | undefined): string {
-  return transportModes.find((m) => m.key === mode)?.emoji ?? "✈️";
+export function getTransportModeIcon(mode: string | undefined): LucideIcon {
+  return transportModes.find((m) => m.key === mode)?.icon ?? Plane;
 }
 
 export function getPlacesTypesForMode(mode: string | undefined): string {

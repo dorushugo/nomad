@@ -4,7 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { colors, fonts } from "../src/theme";
+import { fonts } from "../src/theme";
+import { useTheme } from "../src/hooks/useTheme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,6 +17,8 @@ export default function RootLayout() {
     Poppins_700Bold: require("@expo-google-fonts/poppins/700Bold/Poppins_700Bold.ttf"),
   });
 
+  const { colors, isDark } = useTheme();
+
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
@@ -26,13 +29,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.grayLight },
           headerTintColor: colors.black,
           headerTitleStyle: {
-            fontFamily: "Poppins_600SemiBold",
+            fontFamily: fonts.semiBold,
             fontSize: 18,
           },
           headerShadowVisible: false,

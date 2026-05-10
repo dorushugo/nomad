@@ -22,24 +22,53 @@ const updateItemSchema = z.object({
   notes: z.string().optional(),
   link: z.string().optional(),
   order: z.number().optional(),
+  dayId: z.string().nullable().optional(),
 });
+
+async function findItemForUser(itemId: string, userId: string) {
+  return prisma.item.findFirst({
+    where: {
+      id: itemId,
+      OR: [
+        { day: { trip: { users: { some: { userId } } } } },
+        { trip: { users: { some: { userId } } } },
+      ],
+    },
+  });
+}
 
 // Update item
 itemsRouter.put("/:id", async (c) => {
   try {
     const userId = c.get("userId");
-    const item = await prisma.item.findFirst({
-      where: { id: c.req.param("id"), day: { trip: { users: { some: { userId } } } } },
-    });
+    const item = await findItemForUser(c.req.param("id"), userId);
     if (!item) {
       return c.json({ error: "Element non trouve" }, 404);
     }
 
     const body = await c.req.json();
     const data = updateItemSchema.parse(body);
+
+    const updateData: any = { ...data };
+    if (data.dayId !== undefined) {
+      if (data.dayId !== null) {
+        // Assigning to a day → clear tripId
+        updateData.tripId = null;
+      } else {
+        // Removing day → restore tripId from the item's current day
+        const currentItem = await prisma.item.findUnique({
+          where: { id: c.req.param("id") },
+          select: { day: { select: { tripId: true } } },
+        });
+        if (currentItem?.day?.tripId) {
+          updateData.tripId = currentItem.day.tripId;
+        }
+      }
+    }
+
     const updated = await prisma.item.update({
       where: { id: c.req.param("id") },
-      data,
+      data: updateData,
       include: { documents: true },
     });
     return c.json({ ...updated, documents: await signDocuments(updated.documents) });
@@ -55,9 +84,7 @@ itemsRouter.put("/:id", async (c) => {
 itemsRouter.delete("/:id", async (c) => {
   try {
     const userId = c.get("userId");
-    const item = await prisma.item.findFirst({
-      where: { id: c.req.param("id"), day: { trip: { users: { some: { userId } } } } },
-    });
+    const item = await findItemForUser(c.req.param("id"), userId);
     if (!item) {
       return c.json({ error: "Element non trouve" }, 404);
     }

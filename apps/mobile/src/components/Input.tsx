@@ -12,7 +12,8 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import { colors, fonts, fontSize, radius, spacing } from "../theme";
+import { fonts, fontSize, radius, spacing } from "../theme";
+import { useTheme } from "../hooks/useTheme";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -24,6 +25,7 @@ interface InputProps extends TextInputProps {
 export function Input({ label, error, style, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
   const borderProgress = useSharedValue(0);
+  const { colors } = useTheme();
 
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     borderColor:
@@ -38,26 +40,28 @@ export function Input({ label, error, style, ...props }: InputProps) {
 
   const handleFocus = () => {
     setFocused(true);
-    borderProgress.value = withTiming(1, {
-      duration: 200,
-      easing: Easing.out(Easing.ease),
-    });
+    borderProgress.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
   };
 
   const handleBlur = () => {
     setFocused(false);
-    borderProgress.value = withTiming(0, {
-      duration: 200,
-      easing: Easing.out(Easing.ease),
-    });
+    borderProgress.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
   };
 
   return (
     <View style={styles.wrapper}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <AnimatedView style={[styles.container, containerAnimatedStyle]}>
+      {label && (
+        <Text style={[styles.label, { color: colors.darkGray }]}>{label}</Text>
+      )}
+      <AnimatedView
+        style={[
+          styles.container,
+          { backgroundColor: colors.white, borderColor: colors.grayBorder },
+          containerAnimatedStyle,
+        ]}
+      >
         <TextInput
-          style={[styles.input, style]}
+          style={[styles.input, { color: colors.black }, style]}
           placeholderTextColor={colors.grayMuted}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -77,22 +81,18 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.medium,
     fontSize: fontSize.xs,
-    color: colors.darkGray,
     marginBottom: spacing.sm,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   container: {
     borderWidth: 1.5,
-    borderColor: colors.grayBorder,
     borderRadius: radius.lg,
-    backgroundColor: colors.white,
     overflow: "hidden",
   },
   input: {
     fontFamily: fonts.regular,
     fontSize: fontSize.md,
-    color: colors.black,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     minHeight: 54,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   error: {
     fontFamily: fonts.regular,
     fontSize: fontSize.xs,
-    color: colors.red,
+    color: "#C13515",
     marginTop: spacing.xs + 2,
     marginLeft: spacing.xs,
   },

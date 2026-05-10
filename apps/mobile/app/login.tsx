@@ -14,9 +14,13 @@ import {
 import { Link, router, Stack } from "expo-router";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { useAuthStore } from "../src/stores/authStore";
-import { colors, fonts, fontSize, spacing, radius } from "../src/theme";
+import { fonts, fontSize, spacing, radius } from "../src/theme";
+import { useTheme } from "../src/hooks/useTheme";
+import type { ThemeColors } from "../src/theme";
 
 const { width, height } = Dimensions.get("window");
+const PILL_W = width * 0.72;
+const WAVE_H = height * 0.38;
 
 export default function LoginScreen() {
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -24,6 +28,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { login, loginWithGoogle, isLoading } = useAuthStore();
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -51,7 +57,6 @@ export default function LoginScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.bg}>
-        {/* Bottom wave gradient with SVG */}
         <View style={styles.waveContainer}>
           <Svg width={width} height={WAVE_H} viewBox={`0 0 ${width} ${WAVE_H}`}>
             <Defs>
@@ -78,20 +83,16 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Spacer top */}
             <View style={styles.spacerTop} />
 
-            {/* Icon */}
             <View style={styles.iconRow}>
               <Text style={styles.icon}>✈️</Text>
             </View>
 
-            {/* Title */}
             <Text style={styles.title}>
               Ton prochain{"\n"}voyage commence{"\n"}ici.
             </Text>
 
-            {/* Buttons */}
             <View style={styles.buttonsContainer}>
               <Pressable style={styles.pillBtn} onPress={handleGoogle}>
                 <Text style={styles.googleG}>G</Text>
@@ -156,7 +157,6 @@ export default function LoginScreen() {
               )}
             </View>
 
-            {/* Footer */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Pas encore de compte ? </Text>
               <Link href="/register" asChild>
@@ -174,141 +174,135 @@ export default function LoginScreen() {
   );
 }
 
-const PILL_W = width * 0.72;
-const WAVE_H = height * 0.38;
-
-const styles = StyleSheet.create({
-  bg: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
-  flex: {
-    flex: 1,
-  },
-  waveContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: WAVE_H,
-  },
-  // Content
-  scroll: {
-    flexGrow: 1,
-    alignItems: "center",
-    paddingHorizontal: 30,
-    zIndex: 3,
-  },
-  spacerTop: {
-    flex: 1,
-    minHeight: 80,
-  },
-  iconRow: {
-    marginBottom: 28,
-  },
-  icon: {
-    fontSize: 44,
-  },
-  title: {
-    fontFamily: fonts.bold,
-    fontSize: 36,
-    color: colors.black,
-    textAlign: "center",
-    lineHeight: 46,
-    letterSpacing: -1,
-    marginBottom: 48,
-  },
-  // Buttons
-  buttonsContainer: {
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 36,
-  },
-  pillBtn: {
-    width: PILL_W,
-    height: 54,
-    borderRadius: radius.full,
-    backgroundColor: colors.white,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  googleG: {
-    fontFamily: fonts.bold,
-    fontSize: 18,
-    color: "#4285F4",
-  },
-  mailIcon: {
-    fontSize: 16,
-  },
-  pillBtnText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 15,
-    color: colors.black,
-  },
-  // Email form
-  emailForm: {
-    width: PILL_W,
-    gap: 12,
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.grayLight,
-    borderRadius: radius.full,
-    height: 54,
-    paddingHorizontal: 20,
-  },
-  input: {
-    flex: 1,
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.black,
-    paddingVertical: 0,
-  },
-  eyeText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 12,
-    color: colors.rose,
-    paddingLeft: 8,
-  },
-  submitBtn: {
-    height: 54,
-    borderRadius: radius.full,
-    backgroundColor: colors.rose,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submitBtnText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 15,
-    color: colors.white,
-  },
-  // Footer
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  footerText: {
-    fontFamily: fonts.regular,
-    fontSize: 14,
-    color: colors.black,
-  },
-  footerLink: {
-    fontFamily: fonts.semiBold,
-    fontSize: 14,
-    color: colors.rose,
-  },
-  spacerBottom: {
-    flex: 1,
-    minHeight: 120,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    bg: {
+      flex: 1,
+      backgroundColor: c.white,
+    },
+    flex: {
+      flex: 1,
+    },
+    waveContainer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: WAVE_H,
+    },
+    scroll: {
+      flexGrow: 1,
+      alignItems: "center",
+      paddingHorizontal: 30,
+      zIndex: 3,
+    },
+    spacerTop: {
+      flex: 1,
+      minHeight: 80,
+    },
+    iconRow: {
+      marginBottom: 28,
+    },
+    icon: {
+      fontSize: 44,
+    },
+    title: {
+      fontFamily: fonts.bold,
+      fontSize: 36,
+      color: c.black,
+      textAlign: "center",
+      lineHeight: 46,
+      letterSpacing: -1,
+      marginBottom: 48,
+    },
+    buttonsContainer: {
+      alignItems: "center",
+      gap: 14,
+      marginBottom: 36,
+    },
+    pillBtn: {
+      width: PILL_W,
+      height: 54,
+      borderRadius: radius.full,
+      backgroundColor: c.white,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    googleG: {
+      fontFamily: fonts.bold,
+      fontSize: 18,
+      color: "#4285F4",
+    },
+    mailIcon: {
+      fontSize: 16,
+    },
+    pillBtnText: {
+      fontFamily: fonts.semiBold,
+      fontSize: 15,
+      color: c.black,
+    },
+    emailForm: {
+      width: PILL_W,
+      gap: 12,
+    },
+    inputWrapper: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: c.grayLight,
+      borderRadius: radius.full,
+      height: 54,
+      paddingHorizontal: 20,
+    },
+    input: {
+      flex: 1,
+      fontFamily: fonts.regular,
+      fontSize: 15,
+      color: c.black,
+      paddingVertical: 0,
+    },
+    eyeText: {
+      fontFamily: fonts.semiBold,
+      fontSize: 12,
+      color: c.rose,
+      paddingLeft: 8,
+    },
+    submitBtn: {
+      height: 54,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    submitBtnText: {
+      fontFamily: fonts.semiBold,
+      fontSize: 15,
+      color: "#FFFFFF",
+    },
+    footer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 20,
+    },
+    footerText: {
+      fontFamily: fonts.regular,
+      fontSize: 14,
+      color: c.black,
+    },
+    footerLink: {
+      fontFamily: fonts.semiBold,
+      fontSize: 14,
+      color: c.rose,
+    },
+    spacerBottom: {
+      flex: 1,
+      minHeight: 120,
+    },
+  });

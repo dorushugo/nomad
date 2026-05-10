@@ -1,24 +1,5 @@
-export const colors = {
-  // Primary
-  rose: "#FF385C",
-  roseLight: "rgba(255, 56, 92, 0.06)",
-  roseMuted: "rgba(255, 56, 92, 0.12)",
-
-  // Neutrals
-  black: "#222222",
-  darkGray: "#484848",
-  gray: "#717171",
-  grayMuted: "#B0B0B0",
-  grayBorder: "#EBEBEB",
-  grayLight: "#F7F7F7",
-  white: "#FFFFFF",
-
-  // Semantic
-  green: "#008A05",
-  blue: "#428BFF",
-  orange: "#E07912",
-  red: "#C13515",
-};
+export { lightColors as colors, lightColors, darkColors } from "./colors";
+export type { ThemeColors } from "./colors";
 
 export const spacing = {
   xxs: 2,

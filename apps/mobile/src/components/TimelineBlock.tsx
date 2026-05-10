@@ -9,19 +9,25 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Swipeable } from "react-native-gesture-handler";
-import { Trash2 } from "lucide-react-native";
+import { Trash2, MapPin, Hotel, Plane, FileText } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { Item } from "../stores/tripStore";
-import { getTransportModeEmoji } from "../utils/transportModes";
-import { colors, fonts, fontSize, radius, spacing, shadow } from "../theme";
+import { getTransportModeIcon } from "../utils/transportModes";
+import { fonts, fontSize, radius, spacing, shadow } from "../theme";
+import { useTheme } from "../hooks/useTheme";
+import type { ThemeColors } from "../theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const TYPE_CONFIG = {
-  activity: { emoji: "📍", accent: colors.rose, bg: colors.roseLight },
-  accommodation: { emoji: "🏨", accent: colors.blue, bg: "rgba(66, 139, 255, 0.08)" },
-  transport: { emoji: "✈️", accent: colors.orange, bg: "rgba(224, 121, 18, 0.08)" },
-  note: { emoji: "📝", accent: colors.gray, bg: colors.grayLight },
-};
+function getTypeConfig(c: ThemeColors, type: string): { icon: LucideIcon; accent: string; bg: string } {
+  const map: Record<string, { icon: LucideIcon; accent: string; bg: string }> = {
+    activity: { icon: MapPin, accent: c.rose, bg: c.roseLight },
+    accommodation: { icon: Hotel, accent: c.blue, bg: "rgba(66, 139, 255, 0.08)" },
+    transport: { icon: Plane, accent: c.orange, bg: "rgba(224, 121, 18, 0.08)" },
+    note: { icon: FileText, accent: c.gray, bg: c.grayLight },
+  };
+  return map[type] ?? map.activity;
+}
 
 interface TimelineBlockProps {
   item: Item;
@@ -34,21 +40,21 @@ interface TimelineBlockProps {
 function renderRightActions() {
   return (
     <View style={styles.deleteAction}>
-      <Trash2 size={22} color={colors.white} />
+      <Trash2 size={22} color="#FFFFFF" />
       <Text style={styles.deleteText}>Supprimer</Text>
     </View>
   );
 }
 
 export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: TimelineBlockProps) {
-  const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.activity;
-  const emoji = item.type === "transport"
-    ? getTransportModeEmoji(item.transportMode)
-    : config.emoji;
+  const { colors } = useTheme();
+  const config = getTypeConfig(colors, item.type);
+  const IconComponent = item.type === "transport"
+    ? getTransportModeIcon(item.transportMode)
+    : config.icon;
   const scale = useSharedValue(1);
   const swipeableRef = useRef<Swipeable>(null);
 
-  // Exit animation values
   const translateX = useSharedValue(0);
   const rowHeight = useSharedValue<number | null>(null);
   const animatedHeight = useSharedValue<number | null>(null);
@@ -66,26 +72,15 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: Tim
   }));
 
   const handleConfirmDelete = () => {
-    // Measure current height, then animate out
-    const doDelete = () => {
-      onDelete?.();
-    };
-
-    // Slide left + fade out
+    const doDelete = () => { onDelete?.(); };
     translateX.value = withTiming(-400, { duration: 250, easing: Easing.out(Easing.cubic) });
     opacity.value = withTiming(0, { duration: 250 });
-
-    // Collapse height after slide
     if (rowHeight.value != null) {
       animatedHeight.value = rowHeight.value;
-      animatedHeight.value = withTiming(0, {
-        duration: 200,
-        easing: Easing.inOut(Easing.cubic),
-      }, (finished) => {
+      animatedHeight.value = withTiming(0, { duration: 200, easing: Easing.inOut(Easing.cubic) }, (finished) => {
         if (finished) runOnJS(doDelete)();
       });
     } else {
-      // Fallback: just delete after slide
       opacity.value = withTiming(0, { duration: 250 }, (finished) => {
         if (finished) runOnJS(doDelete)();
       });
@@ -97,19 +92,8 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: Tim
       "Supprimer cet élément ?",
       item.title,
       [
-        {
-          text: "Annuler",
-          style: "cancel",
-          onPress: () => swipeableRef.current?.close(),
-        },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: () => {
-            swipeableRef.current?.close();
-            handleConfirmDelete();
-          },
-        },
+        { text: "Annuler", style: "cancel", onPress: () => swipeableRef.current?.close() },
+        { text: "Supprimer", style: "destructive", onPress: () => { swipeableRef.current?.close(); handleConfirmDelete(); } },
       ]
     );
   };
@@ -117,15 +101,14 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: Tim
   const content = (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, { damping: 12, stiffness: 300 });
-      }}
+      onPressIn={() => { scale.value = withSpring(0.98, { damping: 15, stiffness: 400 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
       style={[
         styles.block,
-        { borderLeftColor: config.accent },
+        {
+          backgroundColor: colors.white,
+          borderLeftColor: config.accent,
+        },
         fill && { height: "100%", marginBottom: 0 },
         isDragging && styles.blockDragging,
         pressStyle,
@@ -133,30 +116,29 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: Tim
     >
       <View style={styles.row}>
         <View style={[styles.iconContainer, { backgroundColor: config.bg }]}>
-          <Text style={styles.icon}>{emoji}</Text>
+          <IconComponent size={18} color={config.accent} />
         </View>
         <View style={styles.content}>
           <View style={styles.topRow}>
             {item.startTime ? (
               <Text style={[styles.time, { color: config.accent }]}>
-                {item.startTime}
-                {item.endTime ? ` - ${item.endTime}` : ""}
+                {item.startTime}{item.endTime ? ` - ${item.endTime}` : ""}
               </Text>
             ) : (
-              <Text style={styles.noTime}>Pas d'horaire</Text>
+              <Text style={[styles.noTime, { color: colors.grayMuted }]}>Pas d'horaire</Text>
             )}
           </View>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, { color: colors.black }]} numberOfLines={1}>
             {item.title}
           </Text>
           {item.location ? (
-            <Text style={styles.location} numberOfLines={1}>
+            <Text style={[styles.location, { color: colors.gray }]} numberOfLines={1}>
               {item.location}
             </Text>
           ) : null}
         </View>
         {item.price != null && item.price > 0 && (
-          <Text style={styles.price}>{item.price}€</Text>
+          <Text style={[styles.price, { color: colors.darkGray }]}>{item.price}€</Text>
         )}
       </View>
     </AnimatedPressable>
@@ -189,10 +171,8 @@ export function TimelineBlock({ item, onPress, onDelete, isDragging, fill }: Tim
 
 const styles = StyleSheet.create({
   block: {
-    backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderLeftWidth: 4,
-    borderLeftColor: colors.rose,
     padding: spacing.md,
     marginBottom: spacing.sm,
     ...shadow.sm,
@@ -202,59 +182,17 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     transform: [{ scale: 1.03 }],
   },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
-  icon: {
-    fontSize: 18,
-  },
-  content: {
-    flex: 1,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  time: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.xs,
-    letterSpacing: 0.3,
-  },
-  noTime: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.grayMuted,
-  },
-  title: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.md,
-    color: colors.black,
-    letterSpacing: -0.2,
-  },
-  location: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.gray,
-    marginTop: 2,
-  },
-  price: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.darkGray,
-    marginLeft: spacing.sm,
-  },
+  row: { flexDirection: "row", alignItems: "center" },
+  iconContainer: { width: 40, height: 40, borderRadius: radius.md, alignItems: "center", justifyContent: "center", marginRight: spacing.md },
+  content: { flex: 1 },
+  topRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
+  time: { fontFamily: fonts.semiBold, fontSize: fontSize.xs, letterSpacing: 0.3 },
+  noTime: { fontFamily: fonts.regular, fontSize: fontSize.xs },
+  title: { fontFamily: fonts.semiBold, fontSize: fontSize.md, letterSpacing: -0.2 },
+  location: { fontFamily: fonts.regular, fontSize: fontSize.xs, marginTop: 2 },
+  price: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, marginLeft: spacing.sm },
   deleteAction: {
-    backgroundColor: colors.red,
+    backgroundColor: "#C13515",
     borderRadius: radius.lg,
     justifyContent: "center",
     alignItems: "center",
@@ -262,10 +200,5 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginLeft: spacing.sm,
   },
-  deleteText: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.xxs,
-    color: colors.white,
-    marginTop: 4,
-  },
+  deleteText: { fontFamily: fonts.semiBold, fontSize: fontSize.xxs, color: "#FFFFFF", marginTop: 4 },
 });

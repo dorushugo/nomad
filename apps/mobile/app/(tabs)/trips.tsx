@@ -17,13 +17,17 @@ import { Plus } from "lucide-react-native";
 import { useTripStore } from "../../src/stores/tripStore";
 import { TripCard } from "../../src/components/TripCard";
 import { Button } from "../../src/components/Button";
-import { colors, fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { useTheme } from "../../src/hooks/useTheme";
+import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function TripsScreen() {
   const { trips, fetchTrips } = useTripStore();
   const [refreshing, setRefreshing] = useState(false);
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,7 +41,6 @@ export default function TripsScreen() {
     setRefreshing(false);
   };
 
-  // FAB animation
   const fabScale = useSharedValue(1);
   const fabAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fabScale.value }],
@@ -45,7 +48,6 @@ export default function TripsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Section Title */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Mes voyages</Text>
         <Text style={styles.sectionCount}>
@@ -55,7 +57,6 @@ export default function TripsScreen() {
         </Text>
       </View>
 
-      {/* Trip List */}
       <FlatList
         data={trips}
         keyExtractor={(item) => item.id}
@@ -93,7 +94,6 @@ export default function TripsScreen() {
         }
       />
 
-      {/* FAB */}
       {trips.length > 0 && (
         <AnimatedPressable
           onPress={() => router.push("/create-trip")}
@@ -105,84 +105,85 @@ export default function TripsScreen() {
           }}
           style={[styles.fab, fabAnimStyle]}
         >
-          <Plus size={28} color={colors.white} strokeWidth={2.5} />
+          <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
         </AnimatedPressable>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.grayLight,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    paddingHorizontal: spacing.lg,
-    paddingTop: 68,
-    paddingBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxl,
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  sectionCount: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
-    color: colors.grayMuted,
-  },
-  list: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: 100,
-  },
-  empty: {
-    alignItems: "center",
-    paddingTop: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.full,
-    backgroundColor: colors.roseMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg,
-  },
-  emptyEmoji: {
-    fontSize: 42,
-  },
-  emptyTitle: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.black,
-    marginBottom: spacing.sm,
-    letterSpacing: -0.3,
-  },
-  emptyText: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.gray,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  fab: {
-    position: "absolute",
-    bottom: 32,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: radius.full,
-    backgroundColor: colors.rose,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow.lg,
-    shadowColor: colors.rose,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.grayLight,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      paddingHorizontal: spacing.lg,
+      paddingTop: 68,
+      paddingBottom: spacing.sm,
+    },
+    sectionTitle: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xxl,
+      color: c.black,
+      letterSpacing: -0.5,
+    },
+    sectionCount: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.sm,
+      color: c.grayMuted,
+    },
+    list: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: 100,
+    },
+    empty: {
+      alignItems: "center",
+      paddingTop: spacing.xxxl,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      borderRadius: radius.full,
+      backgroundColor: c.roseMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.lg,
+    },
+    emptyEmoji: {
+      fontSize: 42,
+    },
+    emptyTitle: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xl,
+      color: c.black,
+      marginBottom: spacing.sm,
+      letterSpacing: -0.3,
+    },
+    emptyText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.md,
+      color: c.gray,
+      textAlign: "center",
+      lineHeight: 22,
+    },
+    fab: {
+      position: "absolute",
+      bottom: 32,
+      right: spacing.lg,
+      width: 60,
+      height: 60,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadow.lg,
+      shadowColor: c.rose,
+    },
+  });

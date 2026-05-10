@@ -55,16 +55,26 @@ export async function signItemDocuments(items: any[]): Promise<any[]> {
   return result;
 }
 
-/** Sign documents for a full trip (days → items → documents) */
+/** Sign documents for a full trip (days → items → documents + direct trip items) */
 export async function signTripDocuments(trip: any): Promise<any> {
-  const allDocs: { path: string; dayIdx: number; itemIdx: number; docIdx: number }[] = [];
+  type DocRef =
+    | { kind: "day"; path: string; dayIdx: number; itemIdx: number; docIdx: number }
+    | { kind: "idea"; path: string; itemIdx: number; docIdx: number };
+
+  const allDocs: DocRef[] = [];
   (trip.days ?? []).forEach((day: any, di: number) => {
     (day.items ?? []).forEach((item: any, ii: number) => {
       (item.documents ?? []).forEach((doc: any, doi: number) => {
-        allDocs.push({ path: doc.fileUrl, dayIdx: di, itemIdx: ii, docIdx: doi });
+        allDocs.push({ kind: "day", path: doc.fileUrl, dayIdx: di, itemIdx: ii, docIdx: doi });
       });
     });
   });
+  (trip.items ?? []).forEach((item: any, ii: number) => {
+    (item.documents ?? []).forEach((doc: any, doi: number) => {
+      allDocs.push({ kind: "idea", path: doc.fileUrl, itemIdx: ii, docIdx: doi });
+    });
+  });
+
   if (!allDocs.length) return trip;
 
   const { data } = await supabase.storage
@@ -75,19 +85,29 @@ export async function signTripDocuments(trip: any): Promise<any> {
 
   const result = {
     ...trip,
-    days: trip.days.map((day: any) => ({
+    days: (trip.days ?? []).map((day: any) => ({
       ...day,
-      items: day.items.map((item: any) => ({
+      items: (day.items ?? []).map((item: any) => ({
         ...item,
         documents: [...(item.documents ?? [])],
       })),
     })),
+    items: (trip.items ?? []).map((item: any) => ({
+      ...item,
+      documents: [...(item.documents ?? [])],
+    })),
   };
 
-  allDocs.forEach(({ dayIdx, itemIdx, docIdx }, i) => {
-    if (data[i]?.signedUrl) {
-      result.days[dayIdx].items[itemIdx].documents[docIdx] = {
-        ...result.days[dayIdx].items[itemIdx].documents[docIdx],
+  allDocs.forEach((ref, i) => {
+    if (!data[i]?.signedUrl) return;
+    if (ref.kind === "day") {
+      result.days[ref.dayIdx].items[ref.itemIdx].documents[ref.docIdx] = {
+        ...result.days[ref.dayIdx].items[ref.itemIdx].documents[ref.docIdx],
+        fileUrl: data[i].signedUrl,
+      };
+    } else {
+      result.items[ref.itemIdx].documents[ref.docIdx] = {
+        ...result.items[ref.itemIdx].documents[ref.docIdx],
         fileUrl: data[i].signedUrl,
       };
     }

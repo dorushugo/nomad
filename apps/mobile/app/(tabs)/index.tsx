@@ -17,7 +17,9 @@ import { Plus } from "lucide-react-native";
 import { useAuthStore } from "../../src/stores/authStore";
 import { useTripStore, Trip } from "../../src/stores/tripStore";
 import { Button } from "../../src/components/Button";
-import { colors, fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { fonts, fontSize, spacing, radius, shadow } from "../../src/theme";
+import { useTheme } from "../../src/hooks/useTheme";
+import type { ThemeColors } from "../../src/theme";
 import {
   formatTripDate,
   getCurrentDay,
@@ -33,6 +35,7 @@ export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
   const { trips, fetchTrips } = useTripStore();
   const [refreshing, setRefreshing] = useState(false);
+  const { colors } = useTheme();
 
   useFocusEffect(
     useCallback(() => {
@@ -54,16 +57,21 @@ export default function HomeScreen() {
     transform: [{ scale: fabScale.value }],
   }));
 
+  const styles = makeStyles(colors);
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.avatar}>
+          <Pressable
+            onPress={() => router.push("/(tabs)/profile")}
+            style={styles.avatar}
+          >
             <Text style={styles.avatarText}>
               {user?.name?.charAt(0)?.toUpperCase() || "N"}
             </Text>
-          </View>
+          </Pressable>
           <View style={styles.headerMeta}>
             <Text style={styles.headerGreeting}>Bonjour,</Text>
             <Text style={styles.headerName}>
@@ -85,11 +93,11 @@ export default function HomeScreen() {
         }
       >
         {currentTrip ? (
-          <CurrentTripCard trip={currentTrip} />
+          <CurrentTripCard trip={currentTrip} colors={colors} />
         ) : nextTrip ? (
-          <NextTripCard trip={nextTrip} />
+          <NextTripCard trip={nextTrip} colors={colors} />
         ) : (
-          <EmptyState />
+          <EmptyState colors={colors} />
         )}
       </ScrollView>
 
@@ -104,17 +112,18 @@ export default function HomeScreen() {
         }}
         style={[styles.fab, fabAnimStyle]}
       >
-        <Plus size={28} color={colors.white} strokeWidth={2.5} />
+        <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
       </AnimatedPressable>
     </View>
   );
 }
 
-function CurrentTripCard({ trip }: { trip: Trip }) {
+function CurrentTripCard({ trip, colors }: { trip: Trip; colors: ThemeColors }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+  const styles = makeStyles(colors);
 
   const currentDay = getCurrentDay(trip);
   const totalDays = getTotalDays(trip);
@@ -148,7 +157,6 @@ function CurrentTripCard({ trip }: { trip: Trip }) {
           {formatTripDate(trip.startDate, "long")} — {formatTripDate(trip.endDate, "long")}
         </Text>
 
-        {/* Progress bar */}
         <View style={styles.progressTrack}>
           <View
             style={[
@@ -162,11 +170,12 @@ function CurrentTripCard({ trip }: { trip: Trip }) {
   );
 }
 
-function NextTripCard({ trip }: { trip: Trip }) {
+function NextTripCard({ trip, colors }: { trip: Trip; colors: ThemeColors }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+  const styles = makeStyles(colors);
 
   const daysUntil = getDaysUntil(trip.startDate);
 
@@ -204,7 +213,8 @@ function NextTripCard({ trip }: { trip: Trip }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ colors }: { colors: ThemeColors }) {
+  const styles = makeStyles(colors);
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIconContainer}>
@@ -224,191 +234,187 @@ function EmptyState() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.grayLight,
-  },
-  header: {
-    backgroundColor: colors.white,
-    paddingTop: 60,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderBottomLeftRadius: radius.xxl,
-    borderBottomRightRadius: radius.xxl,
-    ...shadow.md,
-  },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.full,
-    backgroundColor: colors.rose,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
-  avatarText: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.lg,
-    color: colors.white,
-  },
-  headerMeta: {
-    flex: 1,
-  },
-  headerGreeting: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.sm,
-    color: colors.gray,
-  },
-  headerName: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.black,
-    letterSpacing: -0.3,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingBottom: 40,
-  },
-  sectionLabel: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.gray,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
-  },
-  // Card
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.grayBorder,
-    ...shadow.md,
-  },
-  currentCard: {
-    borderColor: colors.rose,
-    borderWidth: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.md,
-  },
-  cardEmoji: {
-    fontSize: 36,
-  },
-  dayBadge: {
-    backgroundColor: colors.rose,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full,
-  },
-  dayBadgeText: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.xs,
-    color: colors.white,
-  },
-  cardTitle: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxl,
-    color: colors.black,
-    letterSpacing: -0.5,
-    marginBottom: spacing.xxs,
-  },
-  cardDestination: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.md,
-    color: colors.rose,
-    marginBottom: spacing.xs,
-  },
-  cardDates: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.sm,
-    color: colors.gray,
-    marginBottom: spacing.lg,
-  },
-  // Progress bar
-  progressTrack: {
-    height: 6,
-    backgroundColor: colors.grayBorder,
-    borderRadius: radius.full,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.rose,
-    borderRadius: radius.full,
-  },
-  // Countdown
-  countdownContainer: {
-    alignItems: "center",
-    backgroundColor: colors.roseLight,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
-  },
-  countdownNumber: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.display,
-    color: colors.rose,
-    lineHeight: fontSize.display * 1.2,
-  },
-  countdownLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
-    color: colors.rose,
-    marginTop: spacing.xxs,
-  },
-  // Empty
-  empty: {
-    alignItems: "center",
-    paddingTop: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.full,
-    backgroundColor: colors.roseMuted,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg,
-  },
-  emptyEmoji: {
-    fontSize: 42,
-  },
-  emptyTitle: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.black,
-    marginBottom: spacing.sm,
-    letterSpacing: -0.3,
-  },
-  emptyText: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.gray,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 32,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: radius.full,
-    backgroundColor: colors.rose,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow.lg,
-    shadowColor: colors.rose,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.grayLight,
+    },
+    header: {
+      backgroundColor: c.white,
+      paddingTop: 60,
+      paddingBottom: spacing.lg,
+      paddingHorizontal: spacing.lg,
+      borderBottomLeftRadius: radius.xxl,
+      borderBottomRightRadius: radius.xxl,
+      ...shadow.md,
+    },
+    headerTop: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: spacing.md,
+    },
+    avatarText: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.lg,
+      color: "#FFFFFF",
+    },
+    headerMeta: {
+      flex: 1,
+    },
+    headerGreeting: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.gray,
+    },
+    headerName: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xl,
+      color: c.black,
+      letterSpacing: -0.3,
+    },
+    content: {
+      padding: spacing.lg,
+      paddingBottom: 40,
+    },
+    sectionLabel: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.sm,
+      color: c.gray,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      marginBottom: spacing.sm,
+    },
+    card: {
+      backgroundColor: c.white,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: c.grayBorder,
+      ...shadow.md,
+    },
+    currentCard: {
+      borderColor: c.rose,
+      borderWidth: 2,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.md,
+    },
+    cardEmoji: {
+      fontSize: 36,
+    },
+    dayBadge: {
+      backgroundColor: c.rose,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs + 2,
+      borderRadius: radius.full,
+    },
+    dayBadgeText: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.xs,
+      color: "#FFFFFF",
+    },
+    cardTitle: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xxl,
+      color: c.black,
+      letterSpacing: -0.5,
+      marginBottom: spacing.xxs,
+    },
+    cardDestination: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.md,
+      color: c.rose,
+      marginBottom: spacing.xs,
+    },
+    cardDates: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.gray,
+      marginBottom: spacing.lg,
+    },
+    progressTrack: {
+      height: 6,
+      backgroundColor: c.grayBorder,
+      borderRadius: radius.full,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      backgroundColor: c.rose,
+      borderRadius: radius.full,
+    },
+    countdownContainer: {
+      alignItems: "center",
+      backgroundColor: c.roseLight,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.lg,
+    },
+    countdownNumber: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.display,
+      color: c.rose,
+      lineHeight: fontSize.display * 1.2,
+    },
+    countdownLabel: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.sm,
+      color: c.rose,
+      marginTop: spacing.xxs,
+    },
+    empty: {
+      alignItems: "center",
+      paddingTop: spacing.xxxl,
+      paddingHorizontal: spacing.xl,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      borderRadius: radius.full,
+      backgroundColor: c.roseMuted,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.lg,
+    },
+    emptyEmoji: {
+      fontSize: 42,
+    },
+    emptyTitle: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xl,
+      color: c.black,
+      marginBottom: spacing.sm,
+      letterSpacing: -0.3,
+    },
+    emptyText: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.md,
+      color: c.gray,
+      textAlign: "center",
+      lineHeight: 22,
+    },
+    fab: {
+      position: "absolute",
+      bottom: 32,
+      right: spacing.lg,
+      width: 60,
+      height: 60,
+      borderRadius: radius.full,
+      backgroundColor: c.rose,
+      alignItems: "center",
+      justifyContent: "center",
+      ...shadow.lg,
+      shadowColor: c.rose,
+    },
+  });

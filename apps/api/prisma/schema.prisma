@@ -69,6 +69,7 @@ model Trip {
   endDate     DateTime
   users       TripUser[]
   days        Day[]
+  items       Item[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -110,8 +111,10 @@ model Item {
   notes           String?
   link            String?
   order           Int        @default(0)
-  day             Day        @relation(fields: [dayId], references: [id], onDelete: Cascade)
-  dayId           String
+  day             Day?       @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  dayId           String?
+  trip            Trip?      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripId          String?
   documents       Document[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

@@ -22,7 +22,9 @@ import { useTripStore } from "../src/stores/tripStore";
 import { DatePicker } from "../src/components/DatePicker";
 import { PlacesAutocomplete } from "../src/components/PlacesAutocomplete";
 import { LoadingOverlay } from "../src/components/LoadingOverlay";
-import { colors, fonts, fontSize, spacing, radius } from "../src/theme";
+import { fonts, fontSize, spacing, radius } from "../src/theme";
+import { useTheme } from "../src/hooks/useTheme";
+import type { ThemeColors } from "../src/theme";
 
 const TOTAL_STEPS = 4;
 
@@ -46,6 +48,9 @@ export default function CreateTripScreen() {
   const hasNavigated = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldOffsets = useRef<Record<string, number>>({});
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+
   const handleInputFocus = (y: number) => {
     setTimeout(() => scrollViewRef.current?.scrollTo({ y, animated: true }), 300);
   };
@@ -108,7 +113,6 @@ export default function CreateTripScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       enabled={step === 0 || step === 1}
     >
-      {/* Header */}
       <View style={styles.header}>
         <Pressable
           onPress={step === 0 ? () => router.back() : back}
@@ -120,7 +124,6 @@ export default function CreateTripScreen() {
           </Text>
         </Pressable>
 
-        {/* Progress dots */}
         <View style={styles.dots}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
             <View
@@ -133,9 +136,7 @@ export default function CreateTripScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Steps */}
       <View style={styles.body}>
-        {/* Step 0: Destination */}
         {step === 0 && (
           <Animated.View
             key="step-0"
@@ -181,7 +182,6 @@ export default function CreateTripScreen() {
           </Animated.View>
         )}
 
-        {/* Step 1: Title + Description */}
         {step === 1 && (
           <Animated.View
             key="step-1"
@@ -242,7 +242,6 @@ export default function CreateTripScreen() {
           </Animated.View>
         )}
 
-        {/* Step 2: Emoji picker */}
         {step === 2 && (
           <Animated.View
             key="step-2"
@@ -296,7 +295,6 @@ export default function CreateTripScreen() {
           </Animated.View>
         )}
 
-        {/* Step 3: Dates */}
         {step === 3 && (
           <Animated.View
             key="step-3"
@@ -338,8 +336,7 @@ export default function CreateTripScreen() {
                 disabled={!startDate || !endDate || isLoading}
                 style={[
                   styles.nextBtn,
-                  (!startDate || !endDate || isLoading) &&
-                    styles.nextBtnDisabled,
+                  (!startDate || !endDate || isLoading) && styles.nextBtnDisabled,
                 ]}
               >
                 <Text style={styles.nextBtnText}>
@@ -355,147 +352,141 @@ export default function CreateTripScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.grayLight,
-  },
-  // Header
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    backgroundColor: colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBtnText: {
-    fontSize: 20,
-    color: colors.black,
-  },
-  // Dots
-  dots: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.grayBorder,
-  },
-  dotActive: {
-    backgroundColor: colors.rose,
-    width: 24,
-  },
-  // Body
-  body: {
-    flex: 1,
-  },
-  step: {
-    ...StyleSheet.absoluteFillObject,
-    paddingHorizontal: spacing.lg,
-  },
-  stepEmoji: {
-    fontSize: 56,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  question: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xxxl,
-    color: colors.black,
-    letterSpacing: -1,
-    lineHeight: 44,
-    marginBottom: spacing.sm,
-  },
-  hint: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.gray,
-    marginBottom: spacing.xl,
-  },
-  fieldContainer: {
-    flex: 1,
-  },
-  // Inputs
-  input: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.lg,
-    color: colors.black,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 18,
-    borderWidth: 1,
-    borderColor: colors.grayBorder,
-    marginBottom: spacing.md,
-  },
-  inputSecondary: {
-    fontSize: fontSize.md,
-    paddingVertical: 14,
-    minHeight: 60,
-    textAlignVertical: "top",
-  },
-  // Emoji grid
-  emojiScrollContent: {
-    paddingBottom: spacing.sm,
-  },
-  emojiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  emojiCell: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.grayBorder,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emojiCellActive: {
-    borderColor: colors.rose,
-    backgroundColor: colors.roseLight,
-  },
-  emojiText: {
-    fontSize: 28,
-  },
-  // Dates
-  dateRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  dateHalf: {
-    flex: 1,
-  },
-  // Footer
-  footer: {
-    paddingBottom: 40,
-    paddingTop: spacing.md,
-  },
-  nextBtn: {
-    backgroundColor: colors.rose,
-    borderRadius: radius.full,
-    paddingVertical: 18,
-    alignItems: "center",
-  },
-  nextBtnDisabled: {
-    opacity: 0.3,
-  },
-  nextBtnText: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.md,
-    color: colors.white,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.grayLight,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 60,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+    },
+    headerBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      backgroundColor: c.white,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerBtnText: {
+      fontSize: 20,
+      color: c.black,
+    },
+    dots: {
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: radius.full,
+      backgroundColor: c.grayBorder,
+    },
+    dotActive: {
+      backgroundColor: c.rose,
+      width: 24,
+    },
+    body: {
+      flex: 1,
+    },
+    step: {
+      ...StyleSheet.absoluteFillObject,
+      paddingHorizontal: spacing.lg,
+    },
+    stepEmoji: {
+      fontSize: 56,
+      marginTop: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    question: {
+      fontFamily: fonts.bold,
+      fontSize: fontSize.xxxl,
+      color: c.black,
+      letterSpacing: -1,
+      lineHeight: 44,
+      marginBottom: spacing.sm,
+    },
+    hint: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.md,
+      color: c.gray,
+      marginBottom: spacing.xl,
+    },
+    fieldContainer: {
+      flex: 1,
+    },
+    input: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.lg,
+      color: c.black,
+      backgroundColor: c.white,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 18,
+      borderWidth: 1,
+      borderColor: c.grayBorder,
+      marginBottom: spacing.md,
+    },
+    inputSecondary: {
+      fontSize: fontSize.md,
+      paddingVertical: 14,
+      minHeight: 60,
+      textAlignVertical: "top",
+    },
+    emojiScrollContent: {
+      paddingBottom: spacing.sm,
+    },
+    emojiGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    emojiCell: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.lg,
+      backgroundColor: c.white,
+      borderWidth: 2,
+      borderColor: c.grayBorder,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    emojiCellActive: {
+      borderColor: c.rose,
+      backgroundColor: c.roseLight,
+    },
+    emojiText: {
+      fontSize: 28,
+    },
+    dateRow: {
+      flexDirection: "row",
+      gap: spacing.md,
+    },
+    dateHalf: {
+      flex: 1,
+    },
+    footer: {
+      paddingBottom: 40,
+      paddingTop: spacing.md,
+    },
+    nextBtn: {
+      backgroundColor: c.rose,
+      borderRadius: radius.full,
+      paddingVertical: 18,
+      alignItems: "center",
+    },
+    nextBtnDisabled: {
+      opacity: 0.3,
+    },
+    nextBtnText: {
+      fontFamily: fonts.semiBold,
+      fontSize: fontSize.md,
+      color: "#FFFFFF",
+    },
+  });

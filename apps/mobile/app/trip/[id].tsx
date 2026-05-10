@@ -10,6 +10,7 @@ import {
   RefreshControl,
   PanResponder,
   useWindowDimensions,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
 import Animated, {
@@ -22,15 +23,18 @@ import Animated, {
   withTiming,
   runOnJS,
 } from "react-native-reanimated";
-import { Plus } from "lucide-react-native";
-import { useTripStore, Item } from "../../src/stores/tripStore";
+import { Plus, Shuffle, X, MapPin, Hotel, Plane, FileText } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
+import { useTripStore, Item, Day } from "../../src/stores/tripStore";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import { TravelIndicator } from "../../src/components/TravelIndicator";
 import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { Button } from "../../src/components/Button";
 import { AccommodationCard } from "../../src/components/AccommodationCard";
-import { colors, fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
+import { fonts, fontSize, radius, spacing, shadow } from "../../src/theme";
+import { useTheme } from "../../src/hooks/useTheme";
+import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
@@ -40,8 +44,8 @@ const START_HOUR = 6;
 const END_HOUR = 23;
 const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 const TIMELINE_LEFT = 80;
-const SNAP_MINUTES = 15; // Snap to 15-min intervals
-const TOUCH_Y_OFFSET = -15; // Offset to align selection with top of finger
+const SNAP_MINUTES = 15;
+const TOUCH_Y_OFFSET = -15;
 
 function formatDayLabel(dateStr: string) {
   const date = new Date(dateStr);
@@ -84,6 +88,16 @@ function getItemPosition(item: Item) {
   return { top, height };
 }
 
+function getItemTypeConfig(type: string): { icon: LucideIcon; color: string } {
+  const map: Record<string, { icon: LucideIcon; color: string }> = {
+    activity: { icon: MapPin, color: "#FF385C" },
+    accommodation: { icon: Hotel, color: "#428BFF" },
+    transport: { icon: Plane, color: "#E07912" },
+    note: { icon: FileText, color: "#717171" },
+  };
+  return map[type] ?? map.activity;
+}
+
 function DraggableTimelineItem({
   item,
   pos,
@@ -99,7 +113,6 @@ function DraggableTimelineItem({
   onPress: () => void;
   onDelete: () => void;
 }) {
-  // Use shared values for position so Reanimated picks up changes on re-render
   const topSV = useSharedValue(pos.top);
   const heightSV = useSharedValue(pos.height);
 
@@ -122,7 +135,7 @@ function DraggableTimelineItem({
   });
 
   return (
-    <Animated.View style={[styles.timelineItem, animStyle]}>
+    <Animated.View style={[{ position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, zIndex: 2 }, animStyle]}>
       <TimelineBlock item={item} onPress={onPress} onDelete={onDelete} fill />
     </Animated.View>
   );
@@ -131,16 +144,40 @@ function DraggableTimelineItem({
 const MAX_VISIBLE_DAYS = 6;
 const DAY_GAP = spacing.sm;
 
+type DistributionAssignment = { itemId: string; dayId: string };
+
+function distributeIdeas(ideas: Item[], days: Day[]): DistributionAssignment[] {
+  const typePriority: Record<string, number> = { accommodation: 0, transport: 1, activity: 2, note: 3 };
+  const sorted = [...ideas].sort((a, b) => (typePriority[a.type] ?? 2) - (typePriority[b.type] ?? 2));
+  const dayLoad = days.map((day) => ({
+    day,
+    load: (day.items ?? []).filter((i) => i.type !== "accommodation").length,
+  }));
+  const assignments: DistributionAssignment[] = [];
+  for (const idea of sorted) {
+    if (idea.type === "accommodation") {
+      assignments.push({ itemId: idea.id, dayId: days[0].id });
+      continue;
+    }
+    const minDay = dayLoad.reduce((min, curr) => curr.load < min.load ? curr : min);
+    assignments.push({ itemId: idea.id, dayId: minDay.day.id });
+    minDay.load++;
+  }
+  return assignments;
+}
+
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems } = useTripStore();
+  const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems, assignIdeaToDay } = useTripStore();
   const { width: screenWidth } = useWindowDimensions();
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<"timeline" | "calendar">("timeline");
+  const [viewMode, setViewMode] = useState<"timeline" | "calendar" | "organize">("timeline");
+  const [distributionModal, setDistributionModal] = useState(false);
+  const [distributionPlan, setDistributionPlan] = useState<DistributionAssignment[]>([]);
 
-  // Drag selection (shared values for 60fps)
   const selStartHour = useSharedValue(0);
   const selEndHour = useSharedValue(0);
   const selVisible = useSharedValue(false);
@@ -150,7 +187,6 @@ export default function TripDetailScreen() {
   const [scrollLocked, setScrollLocked] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Drag-to-move existing items
   const dragMode = useRef<"create" | "move">("create");
   const draggedItemId = useSharedValue("");
   const dragDeltaY = useSharedValue(0);
@@ -166,14 +202,17 @@ export default function TripDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (id) fetchTrip(id);
+      if (id) fetchTrip(id).catch(() => {});
     }, [id])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    if (id) await fetchTrip(id);
-    setRefreshing(false);
+    try {
+      if (id) await fetchTrip(id);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleDelete = () => {
@@ -197,7 +236,6 @@ export default function TripDetailScreen() {
     );
   };
 
-  // Long press + drag to select a time range on the timeline
   const touchStartTime = useRef(0);
   const touchStartY = useRef(0);
   const dragAnchorHour = useRef(0);
@@ -223,24 +261,18 @@ export default function TripDetailScreen() {
       onPanResponderGrant: () => {
         const y = touchStartY.current + TOUCH_Y_OFFSET;
         const touchHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
-
-        // Check if touch hits the center zone of an existing scheduled item
         const hitItem = scheduledItemsRef.current.find((item) => {
           const startH = parseTime(item.startTime!);
           if (startH == null) return false;
           const endH = item.endTime ? parseTime(item.endTime) : startH + 0.75;
           const actualEnd = endH ?? startH + 0.75;
           const duration = actualEnd - startH;
-          // Shrink hitbox: 25% inset on each side, max 15min
           const inset = Math.min(duration * 0.25, 0.25);
           return touchHour >= startH + inset && touchHour <= actualEnd - inset;
         });
-
         isDragging.current = true;
         setScrollLocked(true);
-
         if (hitItem) {
-          // Move existing item
           dragMode.current = "move";
           const startH = parseTime(hitItem.startTime!)!;
           const endH = hitItem.endTime ? parseTime(hitItem.endTime)! : startH + 0.75;
@@ -249,7 +281,6 @@ export default function TripDetailScreen() {
           dragDeltaY.value = 0;
           dragAnchorHour.current = touchHour;
         } else {
-          // Create new item
           dragMode.current = "create";
           const hour = yToHour(Math.max(0, y));
           const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR, hour));
@@ -262,7 +293,6 @@ export default function TripDetailScreen() {
       onPanResponderMove: (evt) => {
         if (!isDragging.current) return;
         const y = evt.nativeEvent.locationY + TOUCH_Y_OFFSET;
-
         if (dragMode.current === "move") {
           const currentHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
           const deltaHours = currentHour - dragAnchorHour.current;
@@ -278,7 +308,6 @@ export default function TripDetailScreen() {
       onPanResponderRelease: () => {
         isDragging.current = false;
         setScrollLocked(false);
-
         if (dragMode.current === "move" && dragItemOriginal.current) {
           const orig = dragItemOriginal.current;
           const deltaHours = dragDeltaY.value / HOUR_HEIGHT;
@@ -286,16 +315,12 @@ export default function TripDetailScreen() {
           const newStart = snapToQuarter(orig.startHour + deltaHours);
           const clampedStart = Math.max(START_HOUR, Math.min(END_HOUR + 1 - duration, newStart));
           const clampedEnd = clampedStart + duration;
-
-          // Reset drag visuals
           draggedItemId.value = "";
           dragDeltaY.value = 0;
           dragItemOriginal.current = null;
-
           if (Math.abs(clampedStart - orig.startHour) >= 0.01) {
             const newStartTime = formatHour(clampedStart);
             const newEndTime = formatHour(clampedEnd);
-            // Optimistic store update for instant visual feedback
             useTripStore.setState((state) => ({
               trips: state.trips.map((trip) => ({
                 ...trip,
@@ -309,11 +334,9 @@ export default function TripDetailScreen() {
                 })),
               })),
             }));
-            // Persist to API
-            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime });
+            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime }).catch(() => {});
           }
         } else {
-          // Create mode
           const startH = selStartHour.value;
           const endH = selEndHour.value;
           selVisible.value = false;
@@ -336,7 +359,6 @@ export default function TripDetailScreen() {
     })
   ).current;
 
-  // Animated overlay style (no re-renders during drag)
   const selectionAnimStyle = useAnimatedStyle(() => {
     if (!selVisible.value) {
       return { opacity: 0, top: 0, height: 0 };
@@ -348,7 +370,6 @@ export default function TripDetailScreen() {
     };
   });
 
-  // Dynamic time label (runs on UI thread, no re-renders)
   const selTimeLabel = useDerivedValue(() => {
     if (!selVisible.value) return "";
     return formatHour(selStartHour.value) + " — " + formatHour(selEndHour.value);
@@ -357,8 +378,9 @@ export default function TripDetailScreen() {
     text: selTimeLabel.value,
   }));
 
-  // Ref to pass currentDay to panResponder callbacks
   const currentDayRef = useRef<typeof currentDay>(null);
+
+  const styles = makeStyles(colors);
 
   if (!trip) {
     return (
@@ -382,7 +404,6 @@ export default function TripDetailScreen() {
   currentDayRef.current = currentDay;
   const items = currentDay?.items ?? [];
 
-  // Accommodations: collect from all days and filter by date range
   const allAccommodations = days.flatMap((day) =>
     (day.items ?? []).filter((item) => item.type === "accommodation")
   );
@@ -397,9 +418,7 @@ export default function TripDetailScreen() {
     ...new Map(activeAccommodations.map((a) => [a.id, a])).values(),
   ];
 
-  // Exclude accommodations from the timeline
   const nonAccommodationItems = items.filter((i) => i.type !== "accommodation");
-
   const scheduledItems = nonAccommodationItems
     .filter((i) => i.startTime && parseTime(i.startTime) != null)
     .sort((a, b) => parseTime(a.startTime!)! - parseTime(b.startTime!)!);
@@ -423,7 +442,6 @@ export default function TripDetailScreen() {
         }}
       />
       <View style={styles.container}>
-        {/* Trip Header - Compact */}
         <View style={styles.tripHeader}>
           <View style={styles.headerRow}>
             {trip.emoji ? (
@@ -431,27 +449,17 @@ export default function TripDetailScreen() {
             ) : null}
             <View style={styles.headerInfo}>
               <Text style={styles.destination}>{trip.destination}</Text>
-              <Text style={styles.title} numberOfLines={1}>
-                {trip.title}
-              </Text>
+              <Text style={styles.title} numberOfLines={1}>{trip.title}</Text>
             </View>
           </View>
           <Text style={styles.dates}>
-            {new Date(trip.startDate).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "short",
-            })}{" "}
+            {new Date(trip.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
             →{" "}
-            {new Date(trip.endDate).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
+            {new Date(trip.endDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
           </Text>
         </View>
 
-        {/* Day Selector Pills */}
-        <ScrollView
+        {viewMode !== "organize" && <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.dayScroll}
@@ -467,58 +475,49 @@ export default function TripDetailScreen() {
                 onPress={() => setSelectedDayIndex(index)}
                 style={[styles.dayPill, { width: pillWidth }, isActive && styles.dayPillActive]}
               >
-                <Text
-                  style={[styles.dayPillName, isActive && styles.dayPillNameActive]}
-                >
+                <Text style={[styles.dayPillName, isActive && styles.dayPillNameActive]}>
                   {dayName}
                 </Text>
-                <Text
-                  style={[styles.dayPillNum, isActive && styles.dayPillNumActive]}
-                >
+                <Text style={[styles.dayPillNum, isActive && styles.dayPillNumActive]}>
                   {dayNum}
                 </Text>
                 {hasItems && !isActive && <View style={styles.dayDot} />}
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollView>}
 
-        {/* View toggle */}
         <View style={styles.viewToggle}>
-          <Pressable
-            onPress={() => setViewMode("timeline")}
-            style={[styles.toggleBtn, viewMode === "timeline" && styles.toggleBtnActive]}
-          >
-            <Text style={[styles.toggleBtnText, viewMode === "timeline" && styles.toggleBtnTextActive]}>
-              Timeline
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode("calendar")}
-            style={[styles.toggleBtn, viewMode === "calendar" && styles.toggleBtnActive]}
-          >
-            <Text style={[styles.toggleBtnText, viewMode === "calendar" && styles.toggleBtnTextActive]}>
-              Calendrier
-            </Text>
-          </Pressable>
+          {(["timeline", "calendar", "organize"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => setViewMode(mode)}
+              style={[styles.toggleBtn, viewMode === mode && styles.toggleBtnActive]}
+            >
+              <Text style={[styles.toggleBtnText, viewMode === mode && styles.toggleBtnTextActive]}>
+                {mode === "timeline" ? "Timeline" : mode === "calendar" ? "Calendrier" : "Idées"}
+              </Text>
+              {mode === "organize" && (trip.items ?? []).length > 0 && viewMode !== "organize" && (
+                <View style={styles.ideaBadge}>
+                  <Text style={styles.ideaBadgeText}>{(trip.items ?? []).length}</Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
         </View>
 
-        {/* Accommodations */}
-        {uniqueAccommodations.length > 0 && (
+        {viewMode !== "organize" && uniqueAccommodations.length > 0 && (
           <View style={styles.accommodationSection}>
             {uniqueAccommodations.map((acc) => (
               <AccommodationCard
                 key={acc.id}
                 item={acc}
-                onPress={() =>
-                  router.push(`/trip/edit-item?itemId=${acc.id}`)
-                }
+                onPress={() => router.push(`/trip/edit-item?itemId=${acc.id}`)}
               />
             ))}
           </View>
         )}
 
-        {/* Content */}
         <ScrollView
           ref={scrollViewRef}
           style={styles.timelineScroll}
@@ -526,14 +525,57 @@ export default function TripDetailScreen() {
           showsVerticalScrollIndicator={false}
           scrollEnabled={!scrollLocked}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.rose}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.rose} />
           }
         >
-          {/* ── TIMELINE LIST VIEW ── */}
+          {viewMode === "organize" && (
+            <View style={styles.organizeContainer}>
+              <View style={styles.organizeHeader}>
+                <View>
+                  <Text style={styles.organizeTitle}>Idées non planifiées</Text>
+                  <Text style={styles.organizeSubtitle}>
+                    {(trip.items ?? []).length === 0
+                      ? "Aucune idée pour l'instant"
+                      : `${(trip.items ?? []).length} idée${(trip.items ?? []).length > 1 ? "s" : ""} à placer`}
+                  </Text>
+                </View>
+                {(trip.items ?? []).length > 0 && days.length > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      const plan = distributeIdeas(trip.items ?? [], days);
+                      setDistributionPlan(plan);
+                      setDistributionModal(true);
+                    }}
+                    style={styles.distributeBtn}
+                  >
+                    <Shuffle size={16} color="#FFFFFF" strokeWidth={2} />
+                    <Text style={styles.distributeBtnText}>Répartir</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              {(trip.items ?? []).length === 0 ? (
+                <View style={styles.organizeEmpty}>
+                  <Text style={styles.organizeEmptyEmoji}>💡</Text>
+                  <Text style={styles.organizeEmptyText}>
+                    Ajoute des idées d'activités, hébergements ou transports sans te soucier des dates. Tu pourras les placer sur les jours de ton voyage ensuite.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.ideaList}>
+                  {(trip.items ?? []).map((idea) => (
+                    <TimelineBlock
+                      key={idea.id}
+                      item={idea}
+                      onPress={() => router.push(`/trip/edit-item?itemId=${idea.id}`)}
+                      onDelete={() => deleteItem(idea.id, trip.id)}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           {viewMode === "timeline" && (
             <View style={styles.timelineList}>
               {scheduledItems.length === 0 && unscheduledItems.length === 0 && (
@@ -556,15 +598,10 @@ export default function TripDetailScreen() {
                     key={currentDay?.id}
                     items={unscheduledItems}
                     onReorder={(reordered) => {
-                      const orderedItems = reordered.map((item, index) => ({
-                        id: item.id,
-                        order: index,
-                      }));
+                      const orderedItems = reordered.map((item, index) => ({ id: item.id, order: index }));
                       reorderItems(currentDay!.id, orderedItems);
                     }}
-                    onPressItem={(item) =>
-                      router.push(`/trip/edit-item?itemId=${item.id}`)
-                    }
+                    onPressItem={(item) => router.push(`/trip/edit-item?itemId=${item.id}`)}
                     onDeleteItem={(item) => deleteItem(item.id)}
                     onDragStateChange={setScrollLocked}
                   />
@@ -573,395 +610,277 @@ export default function TripDetailScreen() {
             </View>
           )}
 
-          {/* ── CALENDAR GRID VIEW ── */}
           {viewMode === "calendar" && (
-          <View
-            style={styles.timelineGrid}
-            onTouchStart={(e) => {
-              touchStartTime.current = Date.now();
-              touchStartY.current = e.nativeEvent.locationY;
-            }}
-            {...panResponder.panHandlers}
-          >
-            {/* Hour lines */}
-            {HOURS.map((hour) => (
-              <View
-                key={hour}
-                style={[
-                  styles.hourRow,
-                  { top: (hour - START_HOUR) * HOUR_HEIGHT },
-                ]}
+            <View
+              style={styles.timelineGrid}
+              onTouchStart={(e) => {
+                touchStartTime.current = Date.now();
+                touchStartY.current = e.nativeEvent.locationY;
+              }}
+              {...panResponder.panHandlers}
+            >
+              {HOURS.map((hour) => (
+                <View
+                  key={hour}
+                  style={[styles.hourRow, { top: (hour - START_HOUR) * HOUR_HEIGHT }]}
+                  pointerEvents="none"
+                >
+                  <Text style={styles.hourLabel}>
+                    {String(hour).padStart(2, "0")}:00
+                  </Text>
+                  <View style={styles.hourSlot}>
+                    <View style={styles.hourLine} />
+                  </View>
+                </View>
+              ))}
+
+              <Animated.View
+                style={[styles.selectionOverlay, selectionAnimStyle]}
                 pointerEvents="none"
               >
-                <Text style={styles.hourLabel}>
-                  {String(hour).padStart(2, "0")}:00
-                </Text>
-                <View style={styles.hourSlot}>
-                  <View style={styles.hourLine} />
-                </View>
-              </View>
-            ))}
-
-            {/* Drag selection overlay */}
-            <Animated.View
-              style={[styles.selectionOverlay, selectionAnimStyle]}
-              pointerEvents="none"
-            >
-              <View style={styles.selectionContent}>
-                <AnimatedTextInput
-                  editable={false}
-                  animatedProps={selTimeLabelProps}
-                  style={styles.selectionHint}
-                />
-              </View>
-            </Animated.View>
-
-            {/* Scheduled items (draggable) */}
-            {scheduledItems.map((item) => {
-              const pos = getItemPosition(item);
-              if (!pos) return null;
-              return (
-                <DraggableTimelineItem
-                  key={item.id}
-                  item={item}
-                  pos={pos}
-                  draggedItemId={draggedItemId}
-                  dragDeltaY={dragDeltaY}
-                  onPress={() =>
-                    router.push(`/trip/edit-item?itemId=${item.id}`)
-                  }
-                  onDelete={() => deleteItem(item.id)}
-                />
-              );
-            })}
-
-            {/* Travel indicators */}
-            {scheduledItems.map((item, index) => {
-              if (index === 0) return null;
-              const prev = scheduledItems[index - 1];
-              if (!prev.location || !item.location) return null;
-
-              const prevPos = getItemPosition(prev);
-              const currPos = getItemPosition(item);
-              if (!prevPos || !currPos) return null;
-
-              const gapTop = prevPos.top + prevPos.height;
-              const gapHeight = currPos.top - gapTop;
-              if (gapHeight < 24) return null;
-
-              return (
-                <View
-                  key={`travel-${prev.id}-${item.id}`}
-                  style={[
-                    styles.travelContainer,
-                    { top: gapTop, height: gapHeight },
-                  ]}
-                >
-                  <TravelIndicator
-                    originLocation={prev.location}
-                    destinationLocation={item.location}
+                <View style={styles.selectionContent}>
+                  <AnimatedTextInput
+                    editable={false}
+                    animatedProps={selTimeLabelProps}
+                    style={styles.selectionHint}
                   />
                 </View>
-              );
-            })}
+              </Animated.View>
 
-            {/* Spacer */}
-            <View
-              style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }}
-            />
-          </View>
+              {scheduledItems.map((item) => {
+                const pos = getItemPosition(item);
+                if (!pos) return null;
+                return (
+                  <DraggableTimelineItem
+                    key={item.id}
+                    item={item}
+                    pos={pos}
+                    draggedItemId={draggedItemId}
+                    dragDeltaY={dragDeltaY}
+                    onPress={() => router.push(`/trip/edit-item?itemId=${item.id}`)}
+                    onDelete={() => deleteItem(item.id)}
+                  />
+                );
+              })}
+
+              {scheduledItems.map((item, index) => {
+                if (index === 0) return null;
+                const prev = scheduledItems[index - 1];
+                if (!prev.location || !item.location) return null;
+                const prevPos = getItemPosition(prev);
+                const currPos = getItemPosition(item);
+                if (!prevPos || !currPos) return null;
+                const gapTop = prevPos.top + prevPos.height;
+                const gapHeight = currPos.top - gapTop;
+                if (gapHeight < 24) return null;
+                return (
+                  <View
+                    key={`travel-${prev.id}-${item.id}`}
+                    style={[styles.travelContainer, { top: gapTop, height: gapHeight }]}
+                  >
+                    <TravelIndicator
+                      originLocation={prev.location}
+                      destinationLocation={item.location}
+                    />
+                  </View>
+                );
+              })}
+
+              <View style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }} />
+            </View>
           )}
         </ScrollView>
 
-        {/* FAB */}
-        {currentDay && (
+        {(viewMode === "organize" ? true : !!currentDay) && (
           <AnimatedPressable
-            onPress={() =>
-              router.push(`/trip/add-item?dayId=${currentDay.id}`)
-            }
-            onPressIn={() => {
-              fabScale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+            onPress={() => {
+              if (viewMode === "organize") {
+                router.push(`/trip/add-item?tripId=${trip.id}`);
+              } else if (currentDay) {
+                router.push(`/trip/add-item?dayId=${currentDay.id}`);
+              }
             }}
-            onPressOut={() => {
-              fabScale.value = withSpring(1, { damping: 12, stiffness: 300 });
-            }}
+            onPressIn={() => { fabScale.value = withSpring(0.9, { damping: 15, stiffness: 400 }); }}
+            onPressOut={() => { fabScale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
             style={[styles.fab, fabAnimStyle]}
           >
-            <Plus size={28} color={colors.white} strokeWidth={2.5} />
+            <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
           </AnimatedPressable>
         )}
         <LoadingOverlay visible={isLoading} />
+
+        <Modal
+          visible={distributionModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setDistributionModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Répartition proposée</Text>
+                <Pressable onPress={() => setDistributionModal(false)} hitSlop={12}>
+                  <X size={22} color={colors.black} />
+                </Pressable>
+              </View>
+              <Text style={styles.modalSubtitle}>
+                Voici comment les idées seraient réparties sur tes jours de voyage.
+              </Text>
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {days.map((day) => {
+                  const assigned = distributionPlan
+                    .filter((a) => a.dayId === day.id)
+                    .map((a) => (trip.items ?? []).find((i) => i.id === a.itemId))
+                    .filter(Boolean) as Item[];
+                  if (assigned.length === 0) return null;
+                  const { dayName, dayNum } = formatDayLabel(day.date);
+                  return (
+                    <View key={day.id} style={styles.modalDayGroup}>
+                      <Text style={styles.modalDayLabel}>{dayName} {dayNum}</Text>
+                      {assigned.map((idea) => {
+                        const cfg = getItemTypeConfig(idea.type);
+                        const ModalIcon = cfg.icon;
+                        return (
+                          <View key={idea.id} style={styles.modalIdeaRow}>
+                            <ModalIcon size={18} color={cfg.color} />
+                            <Text style={styles.modalIdeaTitle} numberOfLines={1}>{idea.title}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.modalFooter}>
+                <Pressable onPress={() => setDistributionModal(false)} style={styles.modalCancelBtn}>
+                  <Text style={styles.modalCancelText}>Annuler</Text>
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    setDistributionModal(false);
+                    setIsLoading(true);
+                    try {
+                      await Promise.all(
+                        distributionPlan.map(({ itemId, dayId }) =>
+                          assignIdeaToDay(itemId, dayId, trip.id)
+                        )
+                      );
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  style={styles.modalConfirmBtn}
+                >
+                  <Text style={styles.modalConfirmText}>Confirmer</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.grayLight,
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.grayLight,
-  },
-  loadingText: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.md,
-    color: colors.gray,
-  },
-  // Header
-  tripHeader: {
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomLeftRadius: radius.xxl,
-    borderBottomRightRadius: radius.xxl,
-    ...shadow.sm,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  headerEmoji: {
-    fontSize: 36,
-    marginRight: spacing.md,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  destination: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.xxs,
-    color: colors.rose,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  title: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  dates: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.gray,
-  },
-  deleteBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-  },
-  deleteBtnText: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
-    color: colors.red,
-  },
-  // Day selector
-  dayScroll: {
-    maxHeight: 90,
-    marginTop: spacing.md,
-  },
-  dayScrollContent: {
-    paddingHorizontal: spacing.lg,
-    gap: DAY_GAP,
-    alignItems: "center",
-  },
-  dayPill: {
-    height: 72,
-    borderRadius: radius.xl,
-    backgroundColor: colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.grayBorder,
-  },
-  dayPillActive: {
-    backgroundColor: colors.rose,
-    borderColor: colors.rose,
-    ...shadow.md,
-    shadowColor: colors.rose,
-  },
-  dayPillName: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.xxs,
-    color: colors.grayMuted,
-    textTransform: "capitalize",
-    marginBottom: 2,
-  },
-  dayPillNameActive: {
-    color: "rgba(255,255,255,0.7)",
-  },
-  dayPillNum: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.black,
-    letterSpacing: -0.5,
-  },
-  dayPillNumActive: {
-    color: colors.white,
-  },
-  dayDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.rose,
-    marginTop: 3,
-  },
-  // Accommodations
-  accommodationSection: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  // Timeline
-  timelineScroll: {
-    flex: 1,
-    marginTop: spacing.sm,
-  },
-  timelineContent: {
-    paddingBottom: 100,
-  },
-  timelineGrid: {
-    position: "relative",
-    paddingTop: 8,
-  },
-  hourRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    height: HOUR_HEIGHT,
-  },
-  hourLabel: {
-    width: TIMELINE_LEFT,
-    fontFamily: fonts.medium,
-    fontSize: fontSize.xs,
-    color: colors.grayMuted,
-    textAlign: "right",
-    paddingRight: spacing.md,
-    marginTop: -6,
-  },
-  hourSlot: {
-    flex: 1,
-    height: HOUR_HEIGHT,
-  },
-  hourLine: {
-    height: 1,
-    backgroundColor: colors.grayBorder,
-  },
-  // Drag selection overlay
-  selectionOverlay: {
-    position: "absolute",
-    left: TIMELINE_LEFT + spacing.xs,
-    right: spacing.lg,
-    backgroundColor: colors.roseMuted,
-    borderRadius: radius.lg,
-    borderWidth: 2,
-    borderColor: colors.rose,
-    borderStyle: "dashed",
-    zIndex: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: 36,
-  },
-  selectionContent: {
-    alignItems: "center",
-    width: "100%",
-  },
-  selectionHint: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.xs,
-    color: colors.rose,
-    textAlign: "center" as const,
-    padding: 0,
-    width: "100%",
-  },
-  // Items
-  timelineItem: {
-    position: "absolute",
-    left: TIMELINE_LEFT + spacing.sm,
-    right: spacing.lg,
-    zIndex: 2,
-  },
-  travelContainer: {
-    position: "absolute",
-    left: TIMELINE_LEFT + spacing.sm,
-    right: spacing.lg,
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  // View toggle
-  viewToggle: {
-    flexDirection: "row",
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    backgroundColor: colors.grayLight,
-    borderRadius: radius.full,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: colors.grayBorder,
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    alignItems: "center",
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.white,
-    ...shadow.sm,
-  },
-  toggleBtnText: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
-    color: colors.grayMuted,
-  },
-  toggleBtnTextActive: {
-    color: colors.black,
-  },
-  // Timeline list (non-calendar mode)
-  timelineList: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  emptyText: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.sm,
-    color: colors.grayMuted,
-    textAlign: "center",
-    marginTop: spacing.xxl,
-  },
-  // Unscheduled
-  unscheduledSection: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  unscheduledTitle: {
-    fontFamily: fonts.semiBold,
-    fontSize: fontSize.sm,
-    color: colors.grayMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: spacing.md,
-  },
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 32,
-    right: spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: radius.full,
-    backgroundColor: colors.rose,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadow.lg,
-    shadowColor: colors.rose,
-  },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.grayLight },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.grayLight },
+    loadingText: { fontFamily: fonts.medium, fontSize: fontSize.md, color: c.gray },
+    tripHeader: {
+      backgroundColor: c.white,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomLeftRadius: radius.xxl,
+      borderBottomRightRadius: radius.xxl,
+      ...shadow.sm,
+    },
+    headerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.xs },
+    headerEmoji: { fontSize: 36, marginRight: spacing.md },
+    headerInfo: { flex: 1 },
+    destination: {
+      fontFamily: fonts.semiBold, fontSize: fontSize.xxs, color: c.rose,
+      textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 2,
+    },
+    title: { fontFamily: fonts.bold, fontSize: fontSize.xl, color: c.black, letterSpacing: -0.5 },
+    dates: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: c.gray },
+    deleteBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.full },
+    deleteBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.red },
+    dayScroll: { maxHeight: 90, marginTop: spacing.md },
+    dayScrollContent: { paddingHorizontal: spacing.lg, gap: DAY_GAP, alignItems: "center" },
+    dayPill: {
+      height: 72, borderRadius: radius.xl, backgroundColor: c.white,
+      alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: c.grayBorder,
+    },
+    dayPillActive: { backgroundColor: c.rose, borderColor: c.rose, ...shadow.md, shadowColor: c.rose },
+    dayPillName: { fontFamily: fonts.medium, fontSize: fontSize.xxs, color: c.grayMuted, textTransform: "capitalize", marginBottom: 2 },
+    dayPillNameActive: { color: "rgba(255,255,255,0.7)" },
+    dayPillNum: { fontFamily: fonts.bold, fontSize: fontSize.xl, color: c.black, letterSpacing: -0.5 },
+    dayPillNumActive: { color: "#FFFFFF" },
+    dayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.rose, marginTop: 3 },
+    accommodationSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+    timelineScroll: { flex: 1, marginTop: spacing.sm },
+    timelineContent: { paddingBottom: 100 },
+    timelineGrid: { position: "relative", paddingTop: 8 },
+    hourRow: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "flex-start", height: HOUR_HEIGHT },
+    hourLabel: { width: TIMELINE_LEFT, fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.grayMuted, textAlign: "right", paddingRight: spacing.md, marginTop: -6 },
+    hourSlot: { flex: 1, height: HOUR_HEIGHT },
+    hourLine: { height: 1, backgroundColor: c.grayBorder },
+    selectionOverlay: {
+      position: "absolute", left: TIMELINE_LEFT + spacing.xs, right: spacing.lg,
+      backgroundColor: c.roseMuted, borderRadius: radius.lg, borderWidth: 2,
+      borderColor: c.rose, borderStyle: "dashed", zIndex: 10,
+      justifyContent: "center", alignItems: "center", minHeight: 36,
+    },
+    selectionContent: { alignItems: "center", width: "100%" },
+    selectionHint: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.rose, textAlign: "center" as const, padding: 0, width: "100%" },
+    viewToggle: {
+      flexDirection: "row", marginHorizontal: spacing.lg, marginTop: spacing.md,
+      backgroundColor: c.grayLight, borderRadius: radius.full, padding: 3,
+      borderWidth: 1, borderColor: c.grayBorder,
+    },
+    toggleBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.full, alignItems: "center" },
+    toggleBtnActive: { backgroundColor: c.white, ...shadow.sm },
+    toggleBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.grayMuted },
+    toggleBtnTextActive: { color: c.black },
+    timelineList: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+    emptyText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, textAlign: "center", marginTop: spacing.xxl },
+    unscheduledSection: { marginTop: spacing.lg, paddingHorizontal: spacing.lg },
+    unscheduledTitle: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.grayMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: spacing.md },
+    fab: {
+      position: "absolute", bottom: 32, right: spacing.lg, width: 60, height: 60,
+      borderRadius: radius.full, backgroundColor: c.rose, alignItems: "center", justifyContent: "center",
+      ...shadow.lg, shadowColor: c.rose,
+    },
+    ideaBadge: {
+      position: "absolute", top: 2, right: 6, minWidth: 16, height: 16,
+      borderRadius: radius.full, backgroundColor: c.rose, alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+    },
+    ideaBadgeText: { fontFamily: fonts.bold, fontSize: 9, color: "#FFFFFF" },
+    organizeContainer: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+    organizeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg },
+    organizeTitle: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: c.black },
+    organizeSubtitle: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: c.grayMuted, marginTop: 2 },
+    distributeBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: c.rose, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, ...shadow.sm, shadowColor: c.rose },
+    distributeBtnText: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: "#FFFFFF" },
+    organizeEmpty: { alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing.xxl },
+    organizeEmptyEmoji: { fontSize: 48, marginBottom: spacing.lg },
+    organizeEmptyText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, textAlign: "center", lineHeight: 22 },
+    ideaList: { gap: spacing.sm },
+    travelContainer: { position: "absolute", left: TIMELINE_LEFT + spacing.sm, right: spacing.lg, justifyContent: "center", zIndex: 1 },
+    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
+    modalSheet: { backgroundColor: c.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: 40, maxHeight: "80%" },
+    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    modalTitle: { fontFamily: fonts.bold, fontSize: fontSize.lg, color: c.black },
+    modalSubtitle: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: c.grayMuted, marginBottom: spacing.lg },
+    modalScroll: { maxHeight: 340 },
+    modalDayGroup: { marginBottom: spacing.lg },
+    modalDayLabel: { fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.rose, textTransform: "capitalize", marginBottom: spacing.sm },
+    modalIdeaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: c.grayLight },
+    modalIdeaTitle: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.black, flex: 1 },
+    modalFooter: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+    modalCancelBtn: { flex: 1, paddingVertical: 16, borderRadius: radius.full, alignItems: "center", borderWidth: 1.5, borderColor: c.grayBorder },
+    modalCancelText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: c.black },
+    modalConfirmBtn: { flex: 2, paddingVertical: 16, borderRadius: radius.full, alignItems: "center", backgroundColor: c.rose, ...shadow.md, shadowColor: c.rose },
+    modalConfirmText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: "#FFFFFF" },
+  });

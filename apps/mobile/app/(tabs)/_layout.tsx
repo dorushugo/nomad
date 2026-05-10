@@ -1,19 +1,32 @@
 import { Tabs } from "expo-router";
-import { StyleSheet } from "react-native";
 import { House, Luggage, Map, User } from "lucide-react-native";
-import { colors, fonts, fontSize } from "../../src/theme";
+import { fonts, fontSize } from "../../src/theme";
+import { useTheme } from "../../src/hooks/useTheme";
 
 const ICON_SIZE = 22;
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: colors.white,
+          borderTopWidth: 1,
+          borderTopColor: colors.grayBorder,
+          height: 88,
+          paddingTop: 8,
+          paddingBottom: 28,
+        },
         tabBarActiveTintColor: colors.rose,
         tabBarInactiveTintColor: colors.grayMuted,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarLabelStyle: {
+          fontFamily: fonts.medium,
+          fontSize: fontSize.xxs,
+          marginTop: 2,
+        },
       }}
     >
       <Tabs.Screen
@@ -55,19 +68,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.grayBorder,
-    height: 88,
-    paddingTop: 8,
-    paddingBottom: 28,
-  },
-  tabLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.xxs,
-    marginTop: 2,
-  },
-});

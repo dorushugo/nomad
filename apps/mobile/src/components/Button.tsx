@@ -10,7 +10,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import { colors, fonts, fontSize, radius, spacing } from "../theme";
+import { fonts, fontSize, radius, spacing } from "../theme";
+import { useTheme } from "../hooks/useTheme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -36,6 +37,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const scale = useSharedValue(1);
+  const { colors } = useTheme();
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -43,20 +45,30 @@ export function Button({
 
   const isDisabled = disabled || isLoading;
 
+  const variantStyle: ViewStyle = {
+    primary: { backgroundColor: colors.rose },
+    secondary: { backgroundColor: colors.black },
+    outline: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.grayBorder },
+    ghost: { backgroundColor: "transparent" },
+  }[variant];
+
+  const textColor = {
+    primary: "#FFFFFF",
+    secondary: colors.white,
+    outline: colors.black,
+    ghost: colors.rose,
+  }[variant];
+
   return (
     <AnimatedPressable
       onPress={onPress}
-      onPressIn={() => {
-        scale.value = withSpring(0.97, SPRING_CONFIG);
-      }}
-      onPressOut={() => {
-        scale.value = withSpring(1, SPRING_CONFIG);
-      }}
+      onPressIn={() => { scale.value = withSpring(0.97, SPRING_CONFIG); }}
+      onPressOut={() => { scale.value = withSpring(1, SPRING_CONFIG); }}
       disabled={isDisabled}
       style={[
         styles.base,
         sizeStyles[size],
-        variantStyles[variant],
+        variantStyle,
         isDisabled && styles.disabled,
         animatedStyle,
         style,
@@ -64,17 +76,11 @@ export function Button({
     >
       {isLoading ? (
         <ActivityIndicator
-          color={variant === "primary" ? colors.white : colors.rose}
+          color={variant === "primary" ? "#FFFFFF" : colors.rose}
           size="small"
         />
       ) : (
-        <Text
-          style={[
-            styles.text,
-            textSizeStyles[size],
-            textVariantStyles[variant],
-          ]}
-        >
+        <Text style={[styles.text, textSizeStyles[size], { color: textColor }]}>
           {title}
         </Text>
       )}
@@ -96,52 +102,13 @@ const styles = StyleSheet.create({
 });
 
 const sizeStyles = StyleSheet.create({
-  sm: {
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    minHeight: 36,
-  },
-  md: {
-    paddingVertical: spacing.md - 2,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.full,
-    minHeight: 46,
-  },
-  lg: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.full,
-    minHeight: 56,
-  },
-});
-
-const variantStyles = StyleSheet.create({
-  primary: {
-    backgroundColor: colors.rose,
-  },
-  secondary: {
-    backgroundColor: colors.black,
-  },
-  outline: {
-    backgroundColor: "transparent",
-    borderWidth: 1.5,
-    borderColor: colors.grayBorder,
-  },
-  ghost: {
-    backgroundColor: "transparent",
-  },
+  sm: { paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: radius.full, minHeight: 36 },
+  md: { paddingVertical: spacing.md - 2, paddingHorizontal: spacing.lg, borderRadius: radius.full, minHeight: 46 },
+  lg: { paddingVertical: spacing.md, paddingHorizontal: spacing.xl, borderRadius: radius.full, minHeight: 56 },
 });
 
 const textSizeStyles = StyleSheet.create({
   sm: { fontSize: fontSize.sm },
   md: { fontSize: fontSize.md },
   lg: { fontSize: fontSize.md },
-});
-
-const textVariantStyles = StyleSheet.create({
-  primary: { color: colors.white },
-  secondary: { color: colors.white },
-  outline: { color: colors.black },
-  ghost: { color: colors.rose },
 });

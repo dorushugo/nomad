@@ -41,6 +41,7 @@ tripsRouter.get("/:id", async (c) => {
       include: {
         days: { include: { items: { include: { documents: true }, orderBy: { order: "asc" } } }, orderBy: { date: "asc" } },
         users: { include: { user: { select: { id: true, name: true, email: true } } } },
+        items: { where: { dayId: null }, include: { documents: true }, orderBy: { order: "asc" } },
       },
     });
     if (!trip) {
@@ -48,6 +49,55 @@ tripsRouter.get("/:id", async (c) => {
     }
     return c.json(await signTripDocuments(trip));
   } catch {
+    return c.json({ error: "Erreur serveur" }, 500);
+  }
+});
+
+// Add unplanned idea to a trip
+tripsRouter.post("/:id/items", async (c) => {
+  try {
+    const userId = c.get("userId");
+    const trip = await prisma.trip.findFirst({
+      where: { id: c.req.param("id"), users: { some: { userId } } },
+    });
+    if (!trip) {
+      return c.json({ error: "Voyage non trouve" }, 404);
+    }
+
+    const ideaSchema = z.object({
+      type: z.enum(["activity", "accommodation", "transport", "note"]),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      location: z.string().optional(),
+      arrivalLocation: z.string().optional(),
+      transportMode: z.string().optional(),
+      price: z.number().optional(),
+      notes: z.string().optional(),
+      link: z.string().optional(),
+      order: z.number().optional(),
+    });
+
+    const body = await c.req.json();
+    const data = ideaSchema.parse(body);
+
+    if (data.order === undefined) {
+      const lastIdea = await prisma.item.findFirst({
+        where: { tripId: c.req.param("id"), dayId: null },
+        orderBy: { order: "desc" },
+      });
+      data.order = (lastIdea?.order ?? -1) + 1;
+    }
+
+    const { signDocuments } = await import("../utils/supabase");
+    const item = await prisma.item.create({
+      data: { ...data, tripId: c.req.param("id") },
+      include: { documents: true },
+    });
+    return c.json({ ...item, documents: await signDocuments(item.documents) }, 201);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: error.errors }, 400);
+    }
     return c.json({ error: "Erreur serveur" }, 500);
   }
 });
