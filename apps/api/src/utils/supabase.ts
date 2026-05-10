@@ -1,9 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { env } from "../config/env";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseServiceKey);
+export const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 export const DOCUMENTS_BUCKET = "documents";
 
@@ -20,9 +18,10 @@ async function signDocument<T extends { fileUrl: string }>(doc: T): Promise<T> {
 /** Sign all documents in an array */
 export async function signDocuments<T extends { fileUrl: string }>(docs: T[]): Promise<T[]> {
   if (!docs.length) return docs;
-  const { data } = await supabase.storage
-    .from(DOCUMENTS_BUCKET)
-    .createSignedUrls(docs.map((d) => d.fileUrl), SIGNED_URL_EXPIRY);
+  const { data } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrls(
+    docs.map((d) => d.fileUrl),
+    SIGNED_URL_EXPIRY
+  );
   if (!data) return docs;
   return docs.map((doc, i) => ({ ...doc, fileUrl: data[i]?.signedUrl ?? doc.fileUrl }));
 }
@@ -77,9 +76,10 @@ export async function signTripDocuments(trip: any): Promise<any> {
 
   if (!allDocs.length) return trip;
 
-  const { data } = await supabase.storage
-    .from(DOCUMENTS_BUCKET)
-    .createSignedUrls(allDocs.map((d) => d.path), SIGNED_URL_EXPIRY);
+  const { data } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrls(
+    allDocs.map((d) => d.path),
+    SIGNED_URL_EXPIRY
+  );
 
   if (!data) return trip;
 

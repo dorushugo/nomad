@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { bearer } from "better-auth/plugins/bearer";
 import { expo } from "@better-auth/expo";
+import { env } from "../config/env";
 import { prisma } from "../utils/prisma";
 
 export const auth = betterAuth({
@@ -17,20 +18,15 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   },
   trustedOrigins: [
     "nomad://",
     "nomad://**",
-    ...(process.env.NODE_ENV === "development"
-      ? [
-          "exp://",
-          "exp://**",
-          "exp://192.168.*.*:*/**",
-          "https://*.ngrok-free.app",
-        ]
+    ...(env.NODE_ENV === "development"
+      ? ["exp://", "exp://**", "exp://192.168.*.*:*/**", "https://*.ngrok-free.app"]
       : []),
   ],
   plugins: [bearer(), expo()],

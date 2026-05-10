@@ -1,10 +1,10 @@
 import path from "node:path";
 import { Hono } from "hono";
-import { z } from "zod";
 import { documentUploadSchema } from "@nomad/shared";
-import { prisma } from "../utils/prisma";
-import { supabase, DOCUMENTS_BUCKET, signDocuments } from "../utils/supabase";
+import { BadRequestError, NotFoundError } from "../errors";
 import { authMiddleware, type AuthEnv } from "../middleware/auth";
+import { prisma } from "../utils/prisma";
+import { DOCUMENTS_BUCKET, signDocuments, supabase } from "../utils/supabase";
 
 export const documentsRouter = new Hono<AuthEnv>();
 documentsRouter.use(authMiddleware);
@@ -17,69 +17,59 @@ function sanitizeFileName(name: string): string {
 
 // Get signed upload URL + create document record
 documentsRouter.post("/items/:itemId/documents/upload-url", async (c) => {
-  try {
-    const userId = c.get("userId");
-    const item = await prisma.item.findFirst({
-      where: {
-        id: c.req.param("itemId"),
-        day: { trip: { users: { some: { userId } } } },
-      },
-    });
-    if (!item) return c.json({ error: "Element non trouve" }, 404);
+  const userId = c.get("userId");
+  const itemId = c.req.param("itemId");
+  const item = await prisma.item.findFirst({
+    where: {
+      id: itemId,
+      day: { trip: { users: { some: { userId } } } },
+    },
+  });
+  if (!item) throw new NotFoundError("Élément non trouvé");
 
-    const body = await c.req.json();
-    const { fileName, fileType, fileSize } = documentUploadSchema.parse(body);
+  const { fileName, fileType, fileSize } = documentUploadSchema.parse(await c.req.json());
 
-    const safeFileName = sanitizeFileName(fileName);
-    const storagePath = `${item.dayId}/${item.id}/${Date.now()}_${safeFileName}`;
+  const safeFileName = sanitizeFileName(fileName);
+  const storagePath = `${item.dayId}/${item.id}/${Date.now()}_${safeFileName}`;
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(DOCUMENTS_BUCKET)
-      .createSignedUploadUrl(storagePath);
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUploadUrl(storagePath);
 
-    if (uploadError) return c.json({ error: uploadError.message }, 500);
+  if (uploadError) throw new BadRequestError(uploadError.message);
 
-    // Store the storage path (not a public URL)
-    const document = await prisma.document.create({
-      data: {
-        itemId: item.id,
-        fileName,
-        fileUrl: storagePath,
-        fileType,
-        fileSize,
-      },
-    });
+  // Store the storage path (not a public URL)
+  const document = await prisma.document.create({
+    data: {
+      itemId: item.id,
+      fileName,
+      fileUrl: storagePath,
+      fileType,
+      fileSize,
+    },
+  });
 
-    // Return signed download URL for immediate display
-    const [signed] = await signDocuments([document]);
+  // Return signed download URL for immediate display
+  const [signed] = await signDocuments([document]);
 
-    return c.json({ document: signed, uploadUrl: uploadData.signedUrl }, 201);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json({ error: error.errors }, 400);
-    }
-    return c.json({ error: "Erreur serveur" }, 500);
-  }
+  return c.json({ document: signed, uploadUrl: uploadData.signedUrl }, 201);
 });
 
 // Delete a document
 documentsRouter.delete("/documents/:id", async (c) => {
-  try {
-    const userId = c.get("userId");
-    const doc = await prisma.document.findFirst({
-      where: {
-        id: c.req.param("id"),
-        item: { day: { trip: { users: { some: { userId } } } } },
-      },
-    });
-    if (!doc) return c.json({ error: "Document non trouve" }, 404);
+  const userId = c.get("userId");
+  const docId = c.req.param("id");
+  const doc = await prisma.document.findFirst({
+    where: {
+      id: docId,
+      item: { day: { trip: { users: { some: { userId } } } } },
+    },
+  });
+  if (!doc) throw new NotFoundError("Document non trouvé");
 
-    // fileUrl stores the storage path directly
-    await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.fileUrl]);
+  // fileUrl stores the storage path directly
+  await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.fileUrl]);
 
-    await prisma.document.delete({ where: { id: doc.id } });
-    return c.json({ success: true });
-  } catch {
-    return c.json({ error: "Erreur serveur" }, 500);
-  }
+  await prisma.document.delete({ where: { id: doc.id } });
+  return c.json({ success: true });
 });
