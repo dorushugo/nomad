@@ -4,22 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal,
-  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  type TextInputProps,
   View,
   useWindowDimensions,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
-  useDerivedValue,
   withSpring,
   withTiming,
   runOnJS,
@@ -28,25 +23,13 @@ import { AccommodationCard } from "../../src/components/AccommodationCard";
 import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
-import { TravelIndicator } from "../../src/components/TravelIndicator";
 import {
   type DistributionAssignment,
-  DraggableTimelineItem,
-  END_HOUR,
-  HOURS,
-  HOUR_HEIGHT,
   MAX_VISIBLE_DAYS,
-  START_HOUR,
-  TIMELINE_LEFT,
-  TOUCH_Y_OFFSET,
   distributeIdeas,
   formatDayLabel,
-  formatHour,
-  getItemPosition,
   getItemTypeConfig,
   parseTime,
-  snapToQuarter,
-  yToHour,
 } from "../../src/features/timeline";
 import { useTheme } from "../../src/hooks/useTheme";
 import { type Item, useTripStore } from "../../src/stores/tripStore";
@@ -54,7 +37,6 @@ import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const DAY_GAP = spacing.sm;
 const FRENCH_DAY_NAMES = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
@@ -126,22 +108,8 @@ export default function TripDetailScreen() {
     transform: [{ translateY: sheetTranslateY.value }],
   }));
 
-  const selStartHour = useSharedValue(0);
-  const selEndHour = useSharedValue(0);
-  const selVisible = useSharedValue(false);
-  const gridOriginY = useRef(0);
-  const scrollOffsetY = useRef(0);
-  const isDragging = useRef(false);
-  const [scrollLocked, setScrollLocked] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-
-  const dragMode = useRef<"create" | "move">("create");
-  const draggedItemId = useSharedValue("");
-  const dragDeltaY = useSharedValue(0);
-  const dragItemOriginal = useRef<{ itemId: string; startHour: number; endHour: number } | null>(
-    null
-  );
-  const scheduledItemsRef = useRef<Item[]>([]);
+  const [scrollLocked, setScrollLocked] = useState(false);
 
   const trip = trips.find((t) => t.id === id);
 
@@ -187,155 +155,6 @@ export default function TripDetailScreen() {
     ]);
   };
 
-  const touchStartTime = useRef(0);
-  const touchStartY = useRef(0);
-  const dragAnchorHour = useRef(0);
-  const LONG_PRESS_DELAY = 150;
-
-  const editModeRef = useRef(editMode);
-  editModeRef.current = editMode;
-
-  const navigateToAddItem = useCallback((startH: number, endH: number) => {
-    const day = currentDayRef.current;
-    if (day) {
-      router.push(
-        `/trip/add-item?dayId=${day.id}&startTime=${formatHour(startH)}&endTime=${formatHour(endH)}`
-      );
-    }
-  }, []);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt) => {
-        if (!editModeRef.current) return false;
-        const holdDuration = Date.now() - touchStartTime.current;
-        const isInContentZone = evt.nativeEvent.locationX > TIMELINE_LEFT;
-        return isInContentZone && holdDuration >= LONG_PRESS_DELAY;
-      },
-      onPanResponderGrant: () => {
-        const y = touchStartY.current + TOUCH_Y_OFFSET;
-        const touchHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
-        const hitItem = scheduledItemsRef.current.find((item) => {
-          const startH = parseTime(item.startTime!);
-          if (startH == null) return false;
-          const endH = item.endTime ? parseTime(item.endTime) : startH + 0.75;
-          const actualEnd = endH ?? startH + 0.75;
-          const duration = actualEnd - startH;
-          const inset = Math.min(duration * 0.25, 0.25);
-          return touchHour >= startH + inset && touchHour <= actualEnd - inset;
-        });
-        isDragging.current = true;
-        setScrollLocked(true);
-        if (hitItem) {
-          dragMode.current = "move";
-          const startH = parseTime(hitItem.startTime!)!;
-          const endH = hitItem.endTime ? parseTime(hitItem.endTime)! : startH + 0.75;
-          dragItemOriginal.current = { itemId: hitItem.id, startHour: startH, endHour: endH };
-          draggedItemId.value = hitItem.id;
-          dragDeltaY.value = 0;
-          dragAnchorHour.current = touchHour;
-        } else {
-          dragMode.current = "create";
-          const hour = yToHour(Math.max(0, y));
-          const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR, hour));
-          dragAnchorHour.current = clampedHour;
-          selStartHour.value = clampedHour;
-          selEndHour.value = Math.min(clampedHour + 0.25, END_HOUR + 1);
-          selVisible.value = true;
-        }
-      },
-      onPanResponderMove: (evt) => {
-        if (!isDragging.current) return;
-        const y = evt.nativeEvent.locationY + TOUCH_Y_OFFSET;
-        if (dragMode.current === "move") {
-          const currentHour = START_HOUR + Math.max(0, y) / HOUR_HEIGHT;
-          const deltaHours = currentHour - dragAnchorHour.current;
-          dragDeltaY.value = deltaHours * HOUR_HEIGHT;
-        } else {
-          const hour = yToHour(Math.max(0, y));
-          const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR + 1, hour));
-          const anchor = dragAnchorHour.current;
-          selStartHour.value = Math.min(anchor, clampedHour);
-          selEndHour.value = Math.max(anchor + 0.25, Math.max(anchor, clampedHour));
-        }
-      },
-      onPanResponderRelease: () => {
-        isDragging.current = false;
-        setScrollLocked(false);
-        if (dragMode.current === "move" && dragItemOriginal.current) {
-          const orig = dragItemOriginal.current;
-          const deltaHours = dragDeltaY.value / HOUR_HEIGHT;
-          const duration = orig.endHour - orig.startHour;
-          const newStart = snapToQuarter(orig.startHour + deltaHours);
-          const clampedStart = Math.max(START_HOUR, Math.min(END_HOUR + 1 - duration, newStart));
-          const clampedEnd = clampedStart + duration;
-          draggedItemId.value = "";
-          dragDeltaY.value = 0;
-          dragItemOriginal.current = null;
-          if (Math.abs(clampedStart - orig.startHour) >= 0.01) {
-            const newStartTime = formatHour(clampedStart);
-            const newEndTime = formatHour(clampedEnd);
-            useTripStore.setState((state) => ({
-              trips: state.trips.map((trip) => ({
-                ...trip,
-                days: (trip.days ?? []).map((day) => ({
-                  ...day,
-                  items: (day.items ?? []).map((item) =>
-                    item.id === orig.itemId
-                      ? { ...item, startTime: newStartTime, endTime: newEndTime }
-                      : item
-                  ),
-                })),
-              })),
-            }));
-            updateItem(orig.itemId, { startTime: newStartTime, endTime: newEndTime }).catch(
-              () => {}
-            );
-          }
-        } else {
-          const startH = selStartHour.value;
-          const endH = selEndHour.value;
-          selVisible.value = false;
-          if (endH - startH >= 0.25) {
-            navigateToAddItem(startH, endH);
-          }
-        }
-      },
-      onPanResponderTerminate: () => {
-        isDragging.current = false;
-        setScrollLocked(false);
-        if (dragMode.current === "move") {
-          draggedItemId.value = "";
-          dragDeltaY.value = 0;
-          dragItemOriginal.current = null;
-        } else {
-          selVisible.value = false;
-        }
-      },
-    })
-  ).current;
-
-  const selectionAnimStyle = useAnimatedStyle(() => {
-    if (!selVisible.value) {
-      return { opacity: 0, top: 0, height: 0 };
-    }
-    return {
-      opacity: 1,
-      top: (selStartHour.value - START_HOUR) * HOUR_HEIGHT + 8,
-      height: (selEndHour.value - selStartHour.value) * HOUR_HEIGHT,
-    };
-  });
-
-  const selTimeLabel = useDerivedValue(() => {
-    if (!selVisible.value) return "";
-    return formatHour(selStartHour.value) + " — " + formatHour(selEndHour.value);
-  });
-  // TextInput.text isn't in the public TextInput props (it's a private/animated path
-  // that Reanimated wires via the worklet shadow tree), so we widen here.
-  const selTimeLabelProps = useAnimatedProps(
-    () => ({ text: selTimeLabel.value }) as Partial<{ text: string }>
-  ) as Partial<TextInputProps>;
 
   const currentDayRef = useRef<typeof currentDay>(null);
 
@@ -380,7 +199,6 @@ export default function TripDetailScreen() {
   const scheduledItems = nonAccommodationItems
     .filter((i) => i.startTime && parseTime(i.startTime) != null)
     .sort((a, b) => parseTime(a.startTime!)! - parseTime(b.startTime!)!);
-  scheduledItemsRef.current = scheduledItems;
   const unscheduledItems = nonAccommodationItems
     .filter((i) => !i.startTime || parseTime(i.startTime) == null)
     .sort((a, b) => a.order - b.order);
@@ -588,95 +406,31 @@ export default function TripDetailScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.rose} />
           }
         >
-          {/* TIMELINE : grille horaire + items non planifiés */}
+          {/* JOURS : liste d'événements */}
           {viewMode === "timeline" && (
-            <>
+            <View style={styles.dayEventList}>
               {scheduledItems.length === 0 && unscheduledItems.length === 0 && (
                 <Text style={styles.emptyText}>Aucun événement pour ce jour</Text>
               )}
-              <View
-                style={styles.timelineGrid}
-                onTouchStart={(e) => {
-                  touchStartTime.current = Date.now();
-                  touchStartY.current = e.nativeEvent.locationY;
-                }}
-                {...panResponder.panHandlers}
-              >
-                {HOURS.map((hour) => (
-                  <View
-                    key={hour}
-                    style={[styles.hourRow, { top: (hour - START_HOUR) * HOUR_HEIGHT }]}
-                    pointerEvents="none"
-                  >
-                    <Text style={styles.hourLabel}>{String(hour).padStart(2, "0")}:00</Text>
-                    <View style={styles.hourSlot}>
-                      <View style={styles.hourLine} />
-                    </View>
-                  </View>
-                ))}
 
-                <Animated.View
-                  style={[styles.selectionOverlay, selectionAnimStyle]}
-                  pointerEvents="none"
-                >
-                  <View style={styles.selectionContent}>
-                    <AnimatedTextInput
-                      editable={false}
-                      animatedProps={selTimeLabelProps}
-                      style={styles.selectionHint}
-                    />
-                  </View>
-                </Animated.View>
-
-                {scheduledItems.map((item) => {
-                  const pos = getItemPosition(item);
-                  if (!pos) return null;
-                  return (
-                    <DraggableTimelineItem
-                      key={item.id}
-                      item={item}
-                      pos={pos}
-                      draggedItemId={draggedItemId}
-                      dragDeltaY={dragDeltaY}
-                      onPress={() =>
-                        editMode
-                          ? router.push(`/trip/edit-item?itemId=${item.id}`)
-                          : openDetailSheet(item)
-                      }
-                      onDelete={editMode ? () => deleteItem(item.id) : undefined}
-                    />
-                  );
-                })}
-
-                {scheduledItems.map((item, index) => {
-                  if (index === 0) return null;
-                  const prev = scheduledItems[index - 1];
-                  if (!prev.location || !item.location) return null;
-                  const prevPos = getItemPosition(prev);
-                  const currPos = getItemPosition(item);
-                  if (!prevPos || !currPos) return null;
-                  const gapTop = prevPos.top + prevPos.height;
-                  const gapHeight = currPos.top - gapTop;
-                  if (gapHeight < 24) return null;
-                  return (
-                    <View
-                      key={`travel-${prev.id}-${item.id}`}
-                      style={[styles.travelContainer, { top: gapTop, height: gapHeight }]}
-                    >
-                      <TravelIndicator
-                        originLocation={prev.location}
-                        destinationLocation={item.location}
-                      />
-                    </View>
-                  );
-                })}
-
-                <View style={{ height: (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT + 40 }} />
-              </View>
+              {scheduledItems.map((item) => (
+                <TimelineBlock
+                  key={item.id}
+                  item={item}
+                  onPress={() =>
+                    editMode
+                      ? router.push(`/trip/edit-item?itemId=${item.id}`)
+                      : openDetailSheet(item)
+                  }
+                  onDelete={editMode ? () => deleteItem(item.id) : undefined}
+                />
+              ))}
 
               {unscheduledItems.length > 0 && (
-                <View style={styles.unscheduledBelowGrid}>
-                  <Text style={styles.unscheduledTitle}>Non planifié</Text>
+                <View style={styles.unscheduledSection}>
+                  {scheduledItems.length > 0 && (
+                    <Text style={styles.unscheduledTitle}>Non planifié</Text>
+                  )}
                   {editMode ? (
                     <DraggableItemList
                       key={currentDay?.id}
@@ -693,7 +447,7 @@ export default function TripDetailScreen() {
                       onDragStateChange={setScrollLocked}
                     />
                   ) : (
-                    <View style={{ gap: spacing.sm }}>
+                    <>
                       {unscheduledItems.map((item) => (
                         <TimelineBlock
                           key={item.id}
@@ -701,11 +455,11 @@ export default function TripDetailScreen() {
                           onPress={() => openDetailSheet(item)}
                         />
                       ))}
-                    </View>
+                    </>
                   )}
                 </View>
               )}
-            </>
+            </View>
           )}
 
           {/* CALENDRIER : vue mensuelle */}
@@ -1209,49 +963,6 @@ const makeStyles = (c: ThemeColors) =>
     accommodationSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
     timelineScroll: { flex: 1, marginTop: spacing.sm },
     timelineContent: { paddingBottom: 100 },
-    timelineGrid: { position: "relative", paddingTop: 8, marginTop: spacing.md },
-    hourRow: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      flexDirection: "row",
-      alignItems: "flex-start",
-      height: HOUR_HEIGHT,
-    },
-    hourLabel: {
-      width: TIMELINE_LEFT,
-      fontFamily: fonts.medium,
-      fontSize: fontSize.xs,
-      color: c.grayMuted,
-      textAlign: "right",
-      paddingRight: spacing.md,
-      marginTop: -6,
-    },
-    hourSlot: { flex: 1, height: HOUR_HEIGHT },
-    hourLine: { height: 1, backgroundColor: c.grayBorder },
-    selectionOverlay: {
-      position: "absolute",
-      left: TIMELINE_LEFT + spacing.xs,
-      right: spacing.lg,
-      backgroundColor: c.roseMuted,
-      borderRadius: radius.lg,
-      borderWidth: 2,
-      borderColor: c.rose,
-      borderStyle: "dashed",
-      zIndex: 10,
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: 36,
-    },
-    selectionContent: { alignItems: "center", width: "100%" },
-    selectionHint: {
-      fontFamily: fonts.medium,
-      fontSize: fontSize.xs,
-      color: c.rose,
-      textAlign: "center" as const,
-      padding: 0,
-      width: "100%",
-    },
     emptyText: {
       fontFamily: fonts.regular,
       fontSize: fontSize.sm,
@@ -1259,10 +970,12 @@ const makeStyles = (c: ThemeColors) =>
       textAlign: "center",
       marginTop: spacing.xxl,
     },
-    unscheduledBelowGrid: {
+    dayEventList: {
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
+      paddingTop: spacing.md,
+    },
+    unscheduledSection: {
+      marginTop: spacing.md,
     },
     unscheduledTitle: {
       fontFamily: fonts.semiBold,
@@ -1271,13 +984,6 @@ const makeStyles = (c: ThemeColors) =>
       textTransform: "uppercase",
       letterSpacing: 1,
       marginBottom: spacing.md,
-    },
-    travelContainer: {
-      position: "absolute",
-      left: TIMELINE_LEFT + spacing.sm,
-      right: spacing.lg,
-      justifyContent: "center",
-      zIndex: 1,
     },
     // Calendrier mensuel / hebdomadaire
     calendarContainer: {
