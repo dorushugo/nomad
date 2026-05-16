@@ -109,6 +109,7 @@ export default function TripDetailScreen() {
   }));
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const dayCarouselRef = useRef<ScrollView>(null);
   const [scrollLocked, setScrollLocked] = useState(false);
 
   const trip = trips.find((t) => t.id === id);
@@ -155,7 +156,6 @@ export default function TripDetailScreen() {
     ]);
   };
 
-
   const currentDayRef = useRef<typeof currentDay>(null);
 
   const styles = makeStyles(colors);
@@ -181,6 +181,19 @@ export default function TripDetailScreen() {
       ? (pillContainerWidth - DAY_GAP * (visibleDays - 1)) / visibleDays
       : pillContainerWidth;
   currentDayRef.current = currentDay;
+
+  useEffect(() => {
+    if (viewMode !== "timeline") return;
+    const scrollOffset = Math.max(
+      0,
+      spacing.lg + selectedDayIndex * (pillWidth + DAY_GAP) + pillWidth / 2 - screenWidth / 2
+    );
+    const timer = setTimeout(() => {
+      dayCarouselRef.current?.scrollTo({ x: scrollOffset, animated: true });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [viewMode, selectedDayIndex, pillWidth, screenWidth]);
+
   const items = currentDay?.items ?? [];
 
   const allAccommodations = days.flatMap((day) =>
@@ -353,6 +366,7 @@ export default function TripDetailScreen() {
         {/* Carrousel de jours — uniquement en vue timeline */}
         {viewMode === "timeline" && (
           <ScrollView
+            ref={dayCarouselRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.dayScroll}

@@ -23,7 +23,7 @@ interface Prediction {
 }
 
 interface PlacesAutocompleteProps {
-  label: string;
+  label?: string;
   value: string;
   onSelect: (place: string) => void;
   onSelectIata?: (iataCode: string | null) => void;
@@ -137,7 +137,7 @@ export function PlacesAutocomplete({
         wrapperY.current = e.nativeEvent.layout.y;
       }}
     >
-      <Text style={styles.label}>{label}</Text>
+      {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}

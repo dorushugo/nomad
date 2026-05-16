@@ -416,7 +416,7 @@ export default function AddItemScreen() {
                 </>
               )}
               <PlacesAutocomplete
-                label={isTransport ? "Départ" : "Lieu"}
+                label={isTransport ? "Départ" : undefined}
                 value={location}
                 onSelect={setLocation}
                 onInputFocus={handleInputFocus}
@@ -424,8 +424,8 @@ export default function AddItemScreen() {
                   isTransport
                     ? getPlacesPlaceholderForMode(transportMode)
                     : type === "accommodation"
-                      ? "Nom de l'hôtel, adresse..."
-                      : "Adresse, lieu..."
+                      ? "Nom de l'hôtel, adresse... (optionnel)"
+                      : "Adresse, lieu... (optionnel)"
                 }
                 types={isTransport ? getPlacesTypesForMode(transportMode) : "establishment"}
               />
