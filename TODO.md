@@ -61,4 +61,5 @@ Séparer `trip/[id].tsx` en deux modes distincts afin de distinguer la consultat
 
 - heures de check-in et check-out sur séjour => optionnel
 - revoir l'affichage des séjours sur la vue "Jours" et sur la vue "Calendrier"
-- pouvoir ajouter des documents à la création (à réfléchir comment faire niveau DB)
+- un document peut être un billet ou non
+- si c'est un billet, la vue d'affichage de l'event, preview le document

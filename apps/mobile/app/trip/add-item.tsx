@@ -32,6 +32,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { DatePicker } from "../../src/components/DatePicker";
+import { DocumentPicker } from "../../src/components/DocumentPicker";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { PlacesAutocomplete } from "../../src/components/PlacesAutocomplete";
 import { TimePicker } from "../../src/components/TimePicker";
@@ -135,6 +136,7 @@ export default function AddItemScreen() {
   const { dayId, tripId } = params;
   const addItem = useTripStore((s) => s.addItem);
   const addTripIdea = useTripStore((s) => s.addTripIdea);
+  const uploadDocument = useTripStore((s) => s.uploadDocument);
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const itemTypes = getItemTypes(colors);
@@ -161,6 +163,9 @@ export default function AddItemScreen() {
     mode: "driving" | "walking";
   } | null>(null);
   const [durationLoading, setDurationLoading] = useState(false);
+  const [pendingDocuments, setPendingDocuments] = useState<
+    Array<{ uri: string; name: string; type: string; size: number }>
+  >([]);
 
   const isAccommodation = type === "accommodation";
   const isTransport = type === "transport";
@@ -244,10 +249,9 @@ export default function AddItemScreen() {
 
     setIsLoading(true);
     try {
-      if (tripId) {
-        await addTripIdea(tripId, itemData);
-      } else {
-        await addItem(dayId!, itemData);
+      const item = tripId ? await addTripIdea(tripId, itemData) : await addItem(dayId!, itemData);
+      for (const file of pendingDocuments) {
+        await uploadDocument(item.id, file);
       }
       router.back();
     } catch (error: any) {
@@ -643,7 +647,21 @@ export default function AddItemScreen() {
                 multiline
                 numberOfLines={2}
               />
-              <Text style={styles.docsHint}>Tu pourras ajouter des documents après création</Text>
+              <Text style={styles.sectionLabel}>Documents</Text>
+              <DocumentPicker onPick={(file) => setPendingDocuments((prev) => [...prev, file])} />
+              {pendingDocuments.map((doc, i) => (
+                <View key={i} style={styles.pendingDocItem}>
+                  <Text style={styles.pendingDocName} numberOfLines={1}>
+                    {doc.name}
+                  </Text>
+                  <Pressable
+                    onPress={() => setPendingDocuments((prev) => prev.filter((_, j) => j !== i))}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.pendingDocRemove}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -791,12 +809,28 @@ const makeStyles = (c: ThemeColors) =>
       minHeight: 60,
       textAlignVertical: "top",
     },
-    docsHint: {
+    pendingDocItem: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      backgroundColor: c.white,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: c.grayBorder,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: 12,
+      marginBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    pendingDocName: {
+      flex: 1,
       fontFamily: fonts.regular,
-      fontSize: fontSize.xs,
+      fontSize: fontSize.sm,
+      color: c.black,
+    },
+    pendingDocRemove: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.sm,
       color: c.grayMuted,
-      textAlign: "center",
-      marginTop: spacing.sm,
     },
     durationBanner: {
       flexDirection: "row",

@@ -1,8 +1,21 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Clock, Eye, FileText, MapPin, Pencil, Plus, Shuffle, Train, X } from "lucide-react-native";
+import {
+  Clock,
+  Eye,
+  FileText,
+  MapPin,
+  Pencil,
+  Plus,
+  Shuffle,
+  Sun,
+  Train,
+  X,
+} from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Image,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -10,7 +23,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -20,25 +32,25 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { AccommodationCard } from "../../src/components/AccommodationCard";
+import { DayCarousel } from "../../src/components/DayCarousel";
 import { DraggableItemList } from "../../src/components/DraggableItemList";
 import { LoadingOverlay } from "../../src/components/LoadingOverlay";
 import { TimelineBlock } from "../../src/components/TimelineBlock";
 import {
   type DistributionAssignment,
-  MAX_VISIBLE_DAYS,
   distributeIdeas,
   formatDayLabel,
   getItemTypeConfig,
   parseTime,
 } from "../../src/features/timeline";
 import { useTheme } from "../../src/hooks/useTheme";
-import { type Item, useTripStore } from "../../src/stores/tripStore";
-import { fontSize, fonts, radius, shadow, spacing } from "../../src/theme";
+import { type Day, type Document, type Item, useTripStore } from "../../src/stores/tripStore";
+import { fontSize, fonts, radius, shadow, spacing, withOpacity } from "../../src/theme";
 import type { ThemeColors } from "../../src/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const DAY_GAP = spacing.sm;
+const BRIGHTNESS_STEPS = [0, 0.2, 0.4] as const;
 const FRENCH_DAY_NAMES = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"];
 const FRENCH_MONTH_NAMES = [
   "Janvier",
@@ -59,12 +71,13 @@ export default function TripDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { trips, fetchTrip, deleteTrip, deleteItem, updateItem, reorderItems, assignIdeaToDay } =
     useTripStore();
-  const { width: screenWidth } = useWindowDimensions();
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<"timeline" | "calendar" | "organize">("timeline");
+  const [viewMode, setViewMode] = useState<"timeline" | "calendar" | "organize" | "pochette">(
+    "timeline"
+  );
   const [calendarSelectedDayIndex, setCalendarSelectedDayIndex] = useState<number | null>(null);
   const [distributionModal, setDistributionModal] = useState(false);
   const [distributionPlan, setDistributionPlan] = useState<DistributionAssignment[]>([]);
@@ -109,7 +122,6 @@ export default function TripDetailScreen() {
   }));
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const dayCarouselRef = useRef<ScrollView>(null);
   const [scrollLocked, setScrollLocked] = useState(false);
 
   const trip = trips.find((t) => t.id === id);
@@ -174,25 +186,7 @@ export default function TripDetailScreen() {
   const days = trip.days || [];
   const currentDay = days[selectedDayIndex];
 
-  const visibleDays = Math.min(days.length, MAX_VISIBLE_DAYS);
-  const pillContainerWidth = screenWidth - 2 * spacing.lg;
-  const pillWidth =
-    visibleDays > 1
-      ? (pillContainerWidth - DAY_GAP * (visibleDays - 1)) / visibleDays
-      : pillContainerWidth;
   currentDayRef.current = currentDay;
-
-  useEffect(() => {
-    if (viewMode !== "timeline") return;
-    const scrollOffset = Math.max(
-      0,
-      spacing.lg + selectedDayIndex * (pillWidth + DAY_GAP) + pillWidth / 2 - screenWidth / 2
-    );
-    const timer = setTimeout(() => {
-      dayCarouselRef.current?.scrollTo({ x: scrollOffset, animated: true });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [viewMode, selectedDayIndex, pillWidth, screenWidth]);
 
   const items = currentDay?.items ?? [];
 
@@ -344,7 +338,7 @@ export default function TripDetailScreen() {
         <View style={styles.viewToggle}>
           {(editMode
             ? (["timeline", "calendar", "organize"] as const)
-            : (["timeline", "calendar"] as const)
+            : (["timeline", "calendar", "pochette"] as const)
           ).map((mode) => (
             <Pressable
               key={mode}
@@ -352,7 +346,13 @@ export default function TripDetailScreen() {
               style={[styles.toggleBtn, viewMode === mode && styles.toggleBtnActive]}
             >
               <Text style={[styles.toggleBtnText, viewMode === mode && styles.toggleBtnTextActive]}>
-                {mode === "timeline" ? "Jours" : mode === "calendar" ? "Calendrier" : "Idées"}
+                {mode === "timeline"
+                  ? "Jours"
+                  : mode === "calendar"
+                    ? "Calendrier"
+                    : mode === "pochette"
+                      ? "Pochette"
+                      : "Idées"}
               </Text>
               {mode === "organize" && (trip.items ?? []).length > 0 && viewMode !== "organize" && (
                 <View style={styles.ideaBadge}>
@@ -363,36 +363,14 @@ export default function TripDetailScreen() {
           ))}
         </View>
 
-        {/* Carrousel de jours — uniquement en vue timeline */}
-        {viewMode === "timeline" && (
-          <ScrollView
-            ref={dayCarouselRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.dayScroll}
-            contentContainerStyle={styles.dayScrollContent}
-          >
-            {days.map((day, index) => {
-              const { dayName, dayNum } = formatDayLabel(day.date);
-              const isActive = index === selectedDayIndex;
-              const hasItems = (day.items ?? []).length > 0;
-              return (
-                <Pressable
-                  key={day.id}
-                  onPress={() => setSelectedDayIndex(index)}
-                  style={[styles.dayPill, { width: pillWidth }, isActive && styles.dayPillActive]}
-                >
-                  <Text style={[styles.dayPillName, isActive && styles.dayPillNameActive]}>
-                    {dayName}
-                  </Text>
-                  <Text style={[styles.dayPillNum, isActive && styles.dayPillNumActive]}>
-                    {dayNum}
-                  </Text>
-                  {hasItems && !isActive && <View style={styles.dayDot} />}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+        {/* Carrousel de jours — vue timeline et pochette */}
+        {(viewMode === "timeline" || viewMode === "pochette") && (
+          <DayCarousel
+            days={days}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={setSelectedDayIndex}
+            getDayDot={(day) => (day.items ?? []).length > 0}
+          />
         )}
 
         {/* Hébergement actif — uniquement en vue timeline */}
@@ -510,6 +488,9 @@ export default function TripDetailScreen() {
             </View>
           )}
 
+          {/* POCHETTE : documents du jour sélectionné */}
+          {viewMode === "pochette" && <PochetteContent currentDay={currentDay} colors={colors} />}
+
           {/* IDÉES : items non planifiés du voyage */}
           {viewMode === "organize" && (
             <View style={styles.organizeContainer}>
@@ -590,6 +571,9 @@ export default function TripDetailScreen() {
             const next = !editMode;
             setEditMode(next);
             if (!next && viewMode === "organize") {
+              setViewMode("timeline");
+            }
+            if (next && viewMode === "pochette") {
               setViewMode("timeline");
             }
           }}
@@ -941,39 +925,6 @@ const makeStyles = (c: ThemeColors) =>
     toggleBtnActive: { backgroundColor: c.white, ...shadow.sm },
     toggleBtnText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: c.grayMuted },
     toggleBtnTextActive: { color: c.black },
-    dayScroll: { maxHeight: 90, marginTop: spacing.md },
-    dayScrollContent: { paddingHorizontal: spacing.lg, gap: DAY_GAP, alignItems: "center" },
-    dayPill: {
-      height: 72,
-      borderRadius: radius.xl,
-      backgroundColor: c.white,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: c.grayBorder,
-    },
-    dayPillActive: {
-      backgroundColor: c.rose,
-      borderColor: c.rose,
-      ...shadow.md,
-      shadowColor: c.rose,
-    },
-    dayPillName: {
-      fontFamily: fonts.medium,
-      fontSize: fontSize.xxs,
-      color: c.grayMuted,
-      textTransform: "capitalize",
-      marginBottom: 2,
-    },
-    dayPillNameActive: { color: "rgba(255,255,255,0.7)" },
-    dayPillNum: {
-      fontFamily: fonts.bold,
-      fontSize: fontSize.xl,
-      color: c.black,
-      letterSpacing: -0.5,
-    },
-    dayPillNumActive: { color: "#FFFFFF" },
-    dayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.rose, marginTop: 3 },
     accommodationSection: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
     timelineScroll: { flex: 1, marginTop: spacing.sm },
     timelineContent: { paddingBottom: 100 },
@@ -1200,3 +1151,209 @@ const makeStyles = (c: ThemeColors) =>
     },
     modalConfirmText: { fontFamily: fonts.semiBold, fontSize: fontSize.md, color: "#FFFFFF" },
   });
+
+const makePochetteStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: 48,
+      gap: spacing.md,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingTop: 80,
+      gap: spacing.sm,
+    },
+    emptyEmoji: { fontSize: 48, marginBottom: spacing.sm },
+    emptyTitle: { fontFamily: fonts.semiBold, fontSize: fontSize.lg, color: c.black },
+    emptyHint: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.sm,
+      color: c.gray,
+      textAlign: "center",
+      paddingHorizontal: spacing.xl,
+    },
+    itemSection: {
+      backgroundColor: c.white,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    itemHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    itemIconBg: {
+      width: 28,
+      height: 28,
+      borderRadius: radius.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    itemTitle: { flex: 1, fontFamily: fonts.semiBold, fontSize: fontSize.sm, color: c.black },
+    itemDocCount: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: c.grayMuted },
+    docGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    docItem: { width: 80, alignItems: "center" },
+    docThumbnail: {
+      width: 72,
+      height: 72,
+      borderRadius: radius.md,
+      backgroundColor: c.grayLight,
+    },
+    docPdfIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: radius.md,
+      backgroundColor: withOpacity(c.rose, 0.06),
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    docPdfText: { fontFamily: fonts.bold, fontSize: fontSize.sm, color: c.rose },
+    docName: {
+      fontFamily: fonts.regular,
+      fontSize: fontSize.xxs,
+      color: c.gray,
+      marginTop: 4,
+      textAlign: "center",
+    },
+    previewBackdrop: { flex: 1, backgroundColor: "#000000", justifyContent: "center" },
+    previewImage: { width: "100%", height: "100%" },
+    brightnessOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "#FFFFFF" },
+    previewControls: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingTop: 60,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      gap: spacing.md,
+    },
+    previewBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    previewBtnActive: { backgroundColor: "rgba(255,56,92,0.25)" },
+    previewFileName: {
+      flex: 1,
+      fontFamily: fonts.medium,
+      fontSize: fontSize.sm,
+      color: "#FFFFFF",
+      textAlign: "center",
+    },
+  });
+
+function PochetteContent({
+  currentDay,
+  colors,
+}: {
+  currentDay: Day | undefined;
+  colors: ThemeColors;
+}) {
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [brightnessStep, setBrightnessStep] = useState(0);
+  const s = makePochetteStyles(colors);
+
+  const itemsWithDocs = (currentDay?.items ?? []).filter(
+    (item) => (item.documents ?? []).length > 0
+  );
+
+  const openPreview = (doc: Document) => {
+    if (!doc.fileType.startsWith("image/")) {
+      Linking.openURL(doc.fileUrl).catch(() => {});
+      return;
+    }
+    setBrightnessStep(0);
+    setPreviewDoc(doc);
+  };
+
+  return (
+    <View style={s.container}>
+      {itemsWithDocs.length === 0 ? (
+        <View style={s.emptyState}>
+          <Text style={s.emptyEmoji}>🗂️</Text>
+          <Text style={s.emptyTitle}>Aucun document ce jour</Text>
+          <Text style={s.emptyHint}>
+            Ajoute des documents aux événements lors de la création ou de l'édition
+          </Text>
+        </View>
+      ) : (
+        itemsWithDocs.map((item) => {
+          const cfg = getItemTypeConfig(item.type);
+          const ItemIcon = cfg.icon;
+          return (
+            <View key={item.id} style={s.itemSection}>
+              <View style={s.itemHeader}>
+                <View style={[s.itemIconBg, { backgroundColor: withOpacity(cfg.color, 0.1) }]}>
+                  <ItemIcon size={14} color={cfg.color} />
+                </View>
+                <Text style={s.itemTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={s.itemDocCount}>{(item.documents ?? []).length}</Text>
+              </View>
+              <View style={s.docGrid}>
+                {(item.documents ?? []).map((doc) => (
+                  <Pressable key={doc.id} onPress={() => openPreview(doc)} style={s.docItem}>
+                    {doc.fileType.startsWith("image/") ? (
+                      <Image source={{ uri: doc.fileUrl }} style={s.docThumbnail} />
+                    ) : (
+                      <View style={s.docPdfIcon}>
+                        <Text style={s.docPdfText}>PDF</Text>
+                      </View>
+                    )}
+                    <Text style={s.docName} numberOfLines={2}>
+                      {doc.fileName}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          );
+        })
+      )}
+
+      <Modal
+        visible={previewDoc !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewDoc(null)}
+      >
+        <View style={s.previewBackdrop}>
+          {previewDoc && (
+            <>
+              <Image
+                source={{ uri: previewDoc.fileUrl }}
+                style={s.previewImage}
+                resizeMode="contain"
+              />
+              <View
+                style={[s.brightnessOverlay, { opacity: BRIGHTNESS_STEPS[brightnessStep] }]}
+                pointerEvents="none"
+              />
+              <View style={s.previewControls}>
+                <Pressable onPress={() => setPreviewDoc(null)} style={s.previewBtn} hitSlop={8}>
+                  <X size={20} color="#FFFFFF" />
+                </Pressable>
+                <Text style={s.previewFileName} numberOfLines={1}>
+                  {previewDoc.fileName}
+                </Text>
+                <Pressable
+                  onPress={() => setBrightnessStep((v) => (v + 1) % BRIGHTNESS_STEPS.length)}
+                  style={[s.previewBtn, brightnessStep > 0 && s.previewBtnActive]}
+                  hitSlop={8}
+                >
+                  <Sun size={20} color={brightnessStep > 0 ? colors.rose : "#FFFFFF"} />
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      </Modal>
+    </View>
+  );
+}
