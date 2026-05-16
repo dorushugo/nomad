@@ -87,6 +87,7 @@ export default function EditItemScreen() {
   const [arrivalLocation, setArrivalLocation] = useState(foundItem?.arrivalLocation ?? "");
   const [startTime, setStartTime] = useState(foundItem?.startTime ?? "");
   const [endTime, setEndTime] = useState(foundItem?.endTime ?? "");
+  const [showTime, setShowTime] = useState(!!(foundItem?.startTime || foundItem?.endTime));
   const [price, setPrice] = useState(foundItem?.price != null ? String(foundItem.price) : "");
   const [notes, setNotes] = useState(foundItem?.notes ?? "");
   const [transportMode, setTransportMode] = useState(foundItem?.transportMode ?? "avion");
@@ -221,7 +222,7 @@ export default function EditItemScreen() {
     ? startDate && endDate && startDate >= endDate
       ? "La date de check-out doit être après le check-in"
       : null
-    : startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
+    : showTime && startTime.trim() && endTime.trim() && startTime.trim() >= endTime.trim()
       ? "L'heure de fin doit être après l'heure de début"
       : null;
 
@@ -457,25 +458,52 @@ export default function EditItemScreen() {
                 />
               </View>
             </View>
+          ) : showTime ? (
+            <>
+              <View style={styles.timeRow}>
+                <View style={styles.timeHalf}>
+                  <TimePicker
+                    label={isTransport ? "Départ" : "Début"}
+                    value={startTime}
+                    onChange={setStartTime}
+                    placeholder={isTransport ? "14:30" : "09:00"}
+                  />
+                </View>
+                <View style={styles.timeHalf}>
+                  <TimePicker
+                    label={isTransport ? "Arrivée" : "Fin"}
+                    value={endTime}
+                    onChange={setEndTime}
+                    placeholder={isTransport ? "16:45" : "12:00"}
+                  />
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setShowTime(false);
+                  setStartTime("");
+                  setEndTime("");
+                }}
+                style={styles.removeTimeBtn}
+              >
+                <Text style={styles.removeTimeBtnText}>Supprimer l'horaire</Text>
+              </Pressable>
+            </>
           ) : (
-            <View style={styles.timeRow}>
-              <View style={styles.timeHalf}>
-                <TimePicker
-                  label={isTransport ? "Départ" : "Début"}
-                  value={startTime}
-                  onChange={setStartTime}
-                  placeholder={isTransport ? "14:30" : "09:00"}
-                />
-              </View>
-              <View style={styles.timeHalf}>
-                <TimePicker
-                  label={isTransport ? "Arrivée" : "Fin"}
-                  value={endTime}
-                  onChange={setEndTime}
-                  placeholder={isTransport ? "16:45" : "12:00"}
-                />
-              </View>
-            </View>
+            <Pressable
+              onPress={() => {
+                const now = new Date();
+                const totalMin = now.getHours() * 60 + now.getMinutes();
+                const snapped = Math.round(totalMin / 15) * 15;
+                const h = Math.floor(snapped / 60) % 24;
+                const m = snapped % 60;
+                setStartTime(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                setShowTime(true);
+              }}
+              style={styles.addTimeBtn}
+            >
+              <Text style={styles.addTimeBtnText}>+ Ajouter un horaire</Text>
+            </Pressable>
           )}
           {timeError && <Text style={styles.timeError}>{timeError}</Text>}
         </SectionBlock>
@@ -773,6 +801,30 @@ const makeStyles = (c: ThemeColors) =>
       fontFamily: fonts.semiBold,
       fontSize: fontSize.md,
       color: "#FFFFFF",
+    },
+    addTimeBtn: {
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: c.grayBorder,
+      borderStyle: "dashed",
+      paddingVertical: 18,
+      alignItems: "center",
+      marginBottom: spacing.md,
+    },
+    addTimeBtnText: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.md,
+      color: c.gray,
+    },
+    removeTimeBtn: {
+      alignItems: "center",
+      marginBottom: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    removeTimeBtnText: {
+      fontFamily: fonts.medium,
+      fontSize: fontSize.sm,
+      color: c.red,
     },
     dayScroll: {
       marginHorizontal: -spacing.md,

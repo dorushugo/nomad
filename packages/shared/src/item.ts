@@ -40,8 +40,11 @@ export const itemCreateSchema = baseItemFieldsSchema.extend({
 });
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
 
-// POST /trips/:id/items — adds an unplanned idea (no time of day).
-export const ideaCreateSchema = baseItemFieldsSchema;
+// POST /trips/:id/items — adds an unplanned idea (optionally with a time).
+export const ideaCreateSchema = baseItemFieldsSchema.extend({
+  startTime: timeStringSchema.optional().or(z.literal("")),
+  endTime: timeStringSchema.optional().or(z.literal("")),
+});
 export type IdeaCreateInput = z.infer<typeof ideaCreateSchema>;
 
 // PUT /items/:id — every field optional; dayId can move the item between

@@ -58,3 +58,12 @@ Séparer `trip/[id].tsx` en deux modes distincts afin de distinguer la consultat
 - **Indicateur de mode** : au-delà du FAB, signaler visuellement à l'utilisateur dans quel mode il est (bandeau, couleur de header, libellé ?)
 
 ---
+
+- heures de check-in et check-out sur séjour => optionnel
+- revoir l'affichage des séjours sur la vue "Jours" et sur la vue "Calendrier"
+- vue "Jours" créer un event en draggant sur les horaires ne marche plus
+- overlap d'event bizarre
+- edition d'event, le carousel des jours est pas auto centré sur le jour selectionné
+- pouvoir ajouter des documents à la création (à réfléchir comment faire niveau DB)
+- Préciser optionel sur le lieux d'un event de type Notes
+- revoir la vue "Jours", s'inspirer de l'affichage des events de la vue calendrier mais la grossir et l'améliorer sur la vue "Jours". Abandonner l'idée du drag et des heures
